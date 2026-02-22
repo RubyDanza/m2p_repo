@@ -70,7 +70,7 @@
       {% if event %}
         <a class="btn btn-outline-secondary" href="{% url 'garage_sale:items_list' event.id %}">Cancel</a>
       {% else %}
-        <a class="btn btn-outline-secondary" href="{% url 'garage_sale:events_list' %}">Cancel</a>
+        <a class="btn btn-outline-secondary" href="{% url 'garage_sale:home' %}">Cancel</a>
       {% endif %}
     </div>
   </form>

@@ -1,377 +1,314 @@
-from __future__ import annotations
-from typing import Set
-from django.contrib import messages
+from decimal import Decimal
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Prefetch
-from django.http import JsonResponse, HttpResponseForbidden
-from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
-from core.models import User
-# from .forms import GarageSaleEventForm
+from .forms import GarageSaleEventForm, LocationCreateForm
 from .models import GarageSaleEvent, SaleItem, Reservation, ReservationItem
-from django.conf import settings
 
+
+# -------------------------
+# Helpers: session cart
+# -------------------------
+
+CART_KEY = "gs_cart"  # { "<item_id>": qty_int }
+
+def _get_cart(request) -> dict:
+    cart = request.session.get(CART_KEY)
+    if not isinstance(cart, dict):
+        cart = {}
+    return cart
+
+def _save_cart(request, cart: dict) -> None:
+    request.session[CART_KEY] = cart
+    request.session.modified = True
+
+
+# -------------------------
+# Public: Map + browsing
+# -------------------------
 
 def home(request):
+    # Australia-ish default; override with your settings.DEFAULT_MAP_CENTER if you want
+    default_center = getattr(settings, "DEFAULT_MAP_CENTER", [-25.0, 133.0])
+    default_zoom = getattr(settings, "DEFAULT_MAP_ZOOM", 4)
+
     return render(request, "garage_sale/home_map.html", {
-        "default_map_center": getattr(settings, "DEFAULT_MAP_CENTER", [-37.8136, 144.9631]),
-        "default_map_zoom": getattr(settings, "DEFAULT_MAP_ZOOM", 10),
+        "default_map_center": default_center,
+        "default_map_zoom": default_zoom,
     })
-
-
-# ----------------------------
-# Helpers
-# ----------------------------
-
-def _is_owner(user, event: GarageSaleEvent) -> bool:
-    return bool(user.is_authenticated and event.owner_id == user.id)
-
-
-def _current_draft_reservation(user, event: GarageSaleEvent) -> Reservation:
-    reservation, _ = Reservation.objects.get_or_create(
-        event=event,
-        customer=user,
-        status=Reservation.Status.DRAFT,
-        defaults={"assigned_consultant": event.consultant},
-    )
-    return reservation
-
-
-# ----------------------------
-# Landing / map
-# ----------------------------
-
-
 
 
 def map_data(request):
     """
-    Active events ONLY. Coordinates come from event.location (physio Location).
+    Returns pins for the map.
+    Keep it lightweight: only data you need for the popup.
     """
     today = timezone.localdate()
     qs = (
         GarageSaleEvent.objects
-        .select_related("location")
-        .filter(start_date__lte=today, end_date__gte=today)
-        .order_by("-start_date", "-id")
+        .select_related("owner", "location")
+        .order_by("start_date", "id")
     )
 
-    events = []
+    pins = []
     for ev in qs:
+        # Using Location for lat/lng (since event has FK location)
         loc = ev.location
-        if loc.latitude is None or loc.longitude is None:
+        if not loc or loc.latitude is None or loc.longitude is None:
             continue
 
-        events.append({
+        pins.append({
             "id": ev.id,
-            "title": ev.title or f"Garage Sale @ {loc.name}",
-            "location_name": loc.name,
+            "title": ev.title,
             "lat": float(loc.latitude),
             "lng": float(loc.longitude),
-            "start_date": ev.start_date.isoformat(),
-            "end_date": ev.end_date.isoformat(),
-            "items_url": reverse("garage_sale:items_list", args=[ev.id]),
-            "event_url": reverse("garage_sale:event_detail", args=[ev.id]),
+            "start_date": ev.start_date.isoformat() if ev.start_date else None,
+            "end_date": ev.end_date.isoformat() if ev.end_date else None,
+            "detail_url": reverse("garage_sale:event_detail", args=[ev.id]),
         })
 
-    return JsonResponse({"events": events})
+    return JsonResponse({"pins": pins})
 
 
-# ----------------------------
-# Post-login router
-# ----------------------------
-
-@login_required
-def post_login_router(request):
-    role = getattr(request.user, "role", User.Role.CUSTOMER)
-
-    if role == User.Role.LOCATION_OWNER:
-        return redirect("garage_sale:events_list")
-
-    if role == User.Role.CONSULTANT:
-        return redirect("garage_sale:consultant_dashboard")
-
-    return redirect("garage_sale:home")
-
-
-# ----------------------------
-# Events
-# ----------------------------
-
-def events_list(request):
-    today = timezone.localdate()
-    events = GarageSaleEvent.objects.select_related("location", "owner", "consultant").order_by("-start_date", "-id")
-    return render(request, "garage_sale/events_list.html", {"events": events, "today": today})
-
-
-def event_detail(request, event_id):
-    event = get_object_or_404(GarageSaleEvent.objects.select_related("location", "owner", "consultant"), id=event_id)
-    items = event.items.order_by("title", "id")
-    return render(request, "garage_sale/event_detail.html", {
-        "event": event,
-        "items": items,
-        "is_owner": _is_owner(request.user, event),
-    })
-
-
-@login_required
-def event_create(request):
-    if getattr(request.user, "role", None) != User.Role.LOCATION_OWNER:
-        return HttpResponseForbidden("Location owners only")
-
-    if request.method == "POST":
-        form = GarageSaleEventForm(request.POST, owner=request.user)
-        if form.is_valid():
-            ev = form.save(commit=False)
-            ev.owner = request.user
-            ev.save()
-            return redirect("garage_sale:events_list")
-    else:
-        form = GarageSaleEventForm(owner=request.user)
-
-    return render(request, "garage_sale/event_form.html", {"form": form})
-
-
-# ----------------------------
-# Items list + customer selection
-# ----------------------------
-
-@login_required
-def items_list(request, event_id: int):
-    event = get_object_or_404(GarageSaleEvent.objects.select_related("location", "owner", "consultant"), pk=event_id)
-    is_owner = _is_owner(request.user, event)
+def event_detail(request, event_id: int):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id, is_active=True)
 
     items = (
         SaleItem.objects
-        .filter(event=event, is_listed=True)
+        .filter(event=event, is_active=True)
         .order_by("title", "id")
     )
 
-    preselected: Set[int] = set()
+    cart = _get_cart(request)
 
-    if getattr(request.user, "role", None) == User.Role.CUSTOMER:
-        reservation = _current_draft_reservation(request.user, event)
-        preselected = set(reservation.lines.values_list("item_id", flat=True))
-
-        if request.method == "POST":
-            selected_ids = request.POST.getlist("item_ids")
-            reservation.lines.all().delete()
-
-            selected_items = items.filter(id__in=selected_ids, quantity_available__gt=0)
-            for it in selected_items:
-                ReservationItem.objects.create(
-                    reservation=reservation,
-                    item=it,
-                    quantity=1,
-                    price_at_time=it.price,
-                )
-
-            messages.success(request, "Selection updated.")
-            return redirect("garage_sale:cart_review")
-
-    else:
-        if request.method == "POST":
-            messages.error(request, "Only customers can select items.")
-            return redirect("garage_sale:items_list", event_id=event.id)
-
-    return render(request, "garage_sale/items_list.html", {
+    return render(request, "garage_sale/event_detail.html", {
         "event": event,
         "items": items,
-        "preselected": preselected,
-        "is_owner": is_owner,
+        "cart_count": sum(int(q) for q in cart.values()) if cart else 0,
     })
 
 
-# ----------------------------
+# -------------------------
 # Cart
-# ----------------------------
+# -------------------------
 
-@login_required
-def cart_review(request):
-    if getattr(request.user, "role", None) != User.Role.CUSTOMER:
-        return render(request, "garage_sale/not_allowed.html", status=403)
+def cart_view(request):
+    cart = _get_cart(request)
+    item_ids = [int(k) for k in cart.keys()] if cart else []
+    items = SaleItem.objects.filter(id__in=item_ids, is_active=True).select_related("event")
 
-    reservation = (
-        Reservation.objects
-        .filter(customer=request.user, status=Reservation.Status.DRAFT)
-        .select_related("event", "event__location")
-        .prefetch_related("lines__item")
-        .order_by("-created_at")
-        .first()
-    )
+    line_items = []
+    total = Decimal("0.00")
 
-    return render(request, "garage_sale/cart_review.html", {"reservation": reservation})
+    item_map = {i.id: i for i in items}
+    for k, qty in cart.items():
+        item_id = int(k)
+        qty = int(qty)
+        item = item_map.get(item_id)
+        if not item:
+            continue
+        line_total = (item.price or Decimal("0.00")) * qty
+        total += line_total
+        line_items.append({
+            "item": item,
+            "qty": qty,
+            "line_total": line_total,
+        })
 
-
-@login_required
-def cart_clear(request):
-    if getattr(request.user, "role", None) != User.Role.CUSTOMER:
-        return redirect("garage_sale:home")
-
-    reservation = (
-        Reservation.objects
-        .filter(customer=request.user, status=Reservation.Status.DRAFT)
-        .order_by("-created_at")
-        .first()
-    )
-    if reservation:
-        reservation.lines.all().delete()
-        reservation.delete()
-        messages.info(request, "Shopping list cleared.")
-
-    return redirect("garage_sale:home")
+    return render(request, "garage_sale/cart_review.html", {
+        "line_items": line_items,
+        "total": total,
+    })
 
 
-@login_required
-@transaction.atomic
-def cart_confirm(request):
-    if getattr(request.user, "role", None) != User.Role.CUSTOMER:
-        return render(request, "garage_sale/not_allowed.html", status=403)
+def cart_add(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST only")
 
-    reservation = (
-        Reservation.objects
-        .filter(customer=request.user, status=Reservation.Status.DRAFT)
-        .select_related("event", "event__consultant")
-        .prefetch_related("lines__item")
-        .order_by("-created_at")
-        .first()
-    )
+    item_id = request.POST.get("item_id")
+    qty = request.POST.get("qty", "1")
 
-    if not reservation:
-        messages.error(request, "No draft reservation to confirm.")
-        return redirect("garage_sale:cart_review")
+    try:
+        item_id = int(item_id)
+        qty = max(1, int(qty))
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest("Bad item_id/qty")
 
-    lines = list(reservation.lines.select_related("item").all())
-    if not lines:
-        messages.error(request, "Your shopping list is empty.")
-        return redirect("garage_sale:cart_review")
+    item = get_object_or_404(SaleItem, pk=item_id, is_active=True)
 
-    item_ids = [ln.item_id for ln in lines]
-    items_by_id = {it.id: it for it in SaleItem.objects.select_for_update().filter(id__in=item_ids)}
+    cart = _get_cart(request)
+    cart[str(item.id)] = int(cart.get(str(item.id), 0)) + qty
+    _save_cart(request, cart)
 
-    # validate stock first
-    shortages = []
-    for ln in lines:
-        it = items_by_id.get(ln.item_id)
-        if (it is None) or (it.quantity_available < ln.quantity):
-            shortages.append((it.title if it else "Unknown", it.quantity_available if it else 0, ln.quantity))
-
-    if shortages:
-        for title, available, wanted in shortages:
-            messages.error(request, f"Not enough stock for {title}. Available: {available}, in your cart: {wanted}.")
-        return redirect("garage_sale:cart_review")
-
-    # decrement stock
-    for ln in lines:
-        it = items_by_id[ln.item_id]
-        it.quantity_available -= ln.quantity
-        it.save(update_fields=["quantity_available"])
-
-    if reservation.assigned_consultant_id is None and reservation.event.consultant_id:
-        reservation.assigned_consultant = reservation.event.consultant
-
-    reservation.status = Reservation.Status.CONFIRMED
-    reservation.confirmed_at = timezone.now()
-    reservation.save(update_fields=["assigned_consultant", "status", "confirmed_at"])
-
-    messages.success(request, "Confirmed! Your items are reserved for pickup.")
     return redirect("garage_sale:cart_review")
 
 
-# ----------------------------
-# Item CRUD (owner only)
-# ----------------------------
+def cart_remove(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST only")
+
+    item_id = request.POST.get("item_id")
+    try:
+        item_id = int(item_id)
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest("Bad item_id")
+
+    cart = _get_cart(request)
+    cart.pop(str(item_id), None)
+    _save_cart(request, cart)
+
+    return redirect("garage_sale:cart_review")
+
+
+# -------------------------
+# Checkout -> Reservation
+# -------------------------
 
 @login_required
-def item_create(request, event_id):
-    event = get_object_or_404(GarageSaleEvent, id=event_id)
-    if not _is_owner(request.user, event):
-        return HttpResponseForbidden("Not your event.")
+def checkout(request):
+    """
+    Simple: create a Reservation for current user.
+    Assumes cart can include items from multiple events OR you can restrict to single event later.
+    """
+    cart = _get_cart(request)
+    if not cart:
+        return redirect("garage_sale:cart")
 
-    if request.method == "POST":
-        form = SaleItemForm(request.POST)
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.event = event
-            item.save()
-            messages.success(request, "Item added.")
-            return redirect("garage_sale:items_list", event_id=event.id)
-    else:
-        form = SaleItemForm()
+    item_ids = [int(k) for k in cart.keys()]
+    items = list(SaleItem.objects.filter(id__in=item_ids, is_active=True).select_related("event"))
 
-    return render(request, "garage_sale/item_form.html", {"form": form, "event": event})
+    # Basic validation: remove missing items
+    item_map = {i.id: i for i in items}
+
+    with transaction.atomic():
+        reservation = Reservation.objects.create(
+            customer=request.user,
+            status=Reservation.Status.PENDING,  # adjust to your enum
+        )
+
+        total = Decimal("0.00")
+
+        for k, qty in cart.items():
+            item_id = int(k)
+            qty = int(qty)
+            item = item_map.get(item_id)
+            if not item:
+                continue
+
+            price = item.price or Decimal("0.00")
+            line_total = price * qty
+            total += line_total
+
+            ReservationItem.objects.create(
+                reservation=reservation,
+                item=item,
+                quantity=qty,
+                unit_price=price,
+            )
+
+        reservation.total_amount = total
+        reservation.save(update_fields=["total_amount"])
+
+    # Clear cart after successful reservation creation
+    _save_cart(request, {})
+
+    return redirect("garage_sale:reservation_detail", reservation_id=reservation.id)
 
 
 @login_required
-def item_edit(request, item_id):
-    item = get_object_or_404(SaleItem, id=item_id)
-    event = item.event
-    if not _is_owner(request.user, event):
-        return HttpResponseForbidden("Not your event.")
-
-    if request.method == "POST":
-        form = SaleItemForm(request.POST, instance=item)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Item updated.")
-            return redirect("garage_sale:items_list", event_id=event.id)
-    else:
-        form = SaleItemForm(instance=item)
-
-    return render(request, "garage_sale/item_form.html", {"form": form, "event": event, "item": item})
-
-
-@login_required
-def item_delete(request, item_id):
-    item = get_object_or_404(SaleItem, id=item_id)
-    event = item.event
-    if not _is_owner(request.user, event):
-        return HttpResponseForbidden("Not your event.")
-
-    if request.method == "POST":
-        item.delete()
-        messages.success(request, "Item deleted.")
-        return redirect("garage_sale:items_list", event_id=event.id)
-
-    return render(request, "garage_sale/item_confirm_delete.html", {"item": item, "event": event})
-
-
-# ----------------------------
-# Consultant dashboard
-# ----------------------------
-
-@login_required
-def consultant_dashboard(request):
-    if getattr(request.user, "role", None) != User.Role.CONSULTANT:
-        return render(request, "garage_sale/not_allowed.html", status=403)
-
-    today = timezone.localdate()
-
-    events = (
-        GarageSaleEvent.objects
-        .select_related("location", "owner", "consultant")
-        .filter(end_date__gte=today, consultant=request.user)
-        .order_by("start_date", "location__name", "title")
+def reservation_detail(request, reservation_id: int):
+    reservation = get_object_or_404(Reservation, pk=reservation_id, customer=request.user)
+    items = []
+    qs = (
+        ReservationItem.objects
+        .filter(reservation=reservation)
+        .select_related("item", "item__event")
+        .order_by("id")
     )
 
-    lines_qs = ReservationItem.objects.select_related("item").order_by("item__title")
+    for r in qs:
+        r.line_total = r.quantity * r.unit_price
+        items.append(r)
 
-    pickups = (
-        Reservation.objects
-        .select_related("event", "event__location", "customer", "assigned_consultant")
-        .prefetch_related(Prefetch("lines", queryset=lines_qs))
-        .filter(status=Reservation.Status.CONFIRMED, event__in=events)
-        .order_by("event__start_date", "event__location__name", "confirmed_at", "created_at")
-    )
 
-    pickups_by_event = {}
-    for r in pickups:
-        pickups_by_event.setdefault(r.event_id, []).append(r)
+# -------------------------
+# Owner views (light wiring)
+# -------------------------
 
-    return render(request, "garage_sale/consultant_dashboard.html", {
-        "today": today,
-        "events": events,
-        "pickups_by_event": pickups_by_event,
+@login_required
+def owner_dashboard(request):
+    print("Authenticated:", request.user.is_authenticated)  # Debugging: Check if logged in
+    # Adjust to your role system (e.g. request.user.role == "LOCATION_OWNER")
+    events = GarageSaleEvent.objects.filter(owner=request.user).order_by("-id")
+    return render(request, "garage_sale/owner/dashboard.html", {"events": events})
+
+
+@login_required
+def owner_event_create(request):
+    if request.method == "POST":
+        event_form = GarageSaleEventForm(request.POST)
+
+        create_new_location = request.POST.get("create_new_location") == "1"
+        location_form = LocationCreateForm(request.POST) if create_new_location else LocationCreateForm()
+
+        if event_form.is_valid() and (not create_new_location or location_form.is_valid()):
+            with transaction.atomic():
+                event = event_form.save(commit=False)
+                event.owner = request.user
+
+                if create_new_location:
+                    loc = location_form.save(commit=False)
+                    if getattr(request.user, "role", "") == "LOCATION_OWNER":
+                        loc.owner = request.user
+                    else:
+                        loc.owner = None
+                    loc.save()
+                    event.location = loc
+                else:
+                    event.location = event_form.cleaned_data["location"]
+
+                event.save()
+                event_form.save_m2m()
+
+            # ✅ IMPORTANT: redirect after POST so the form doesn't show again
+            return redirect("garage_sale:owner_dashboard")
+
+        # invalid -> fall through and re-render with errors
+        return render(request, "garage_sale/owner/event_form.html", {
+            "form": event_form,
+            "location_form": location_form,
+        })
+
+    # GET
+    return render(request, "garage_sale/owner/event_form.html", {
+        "form": GarageSaleEventForm(),
+        "location_form": LocationCreateForm(),
     })
+
+@login_required
+def owner_event_edit(request, event_id: int):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
+    return render(request, "garage_sale/owner/event_form.html", {"event": event})
+
+
+@login_required
+def owner_items(request, event_id: int):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
+    items = SaleItem.objects.filter(event=event).order_by("name", "id")
+    return render(request, "garage_sale/owner/items_list.html", {"event": event, "items": items})
+
+
+@login_required
+def owner_event_reservations(request, event_id: int):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
+    reservations = (
+        Reservation.objects
+        .filter(items__item__event=event)
+        .distinct()
+        .order_by("-id")
+    )
+    return render(request, "garage_sale/owner/reservations.html", {"event": event, "reservations": reservations})

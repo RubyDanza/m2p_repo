@@ -7,8 +7,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  // Config injected by template
   const cfg = window.GARAGE_SALE || {};
-  const mapDataUrl = cfg.mapDataUrl;
+
+  // Prefer either key name (supports old/new template vars)
+  const mapDataUrl = cfg.mapDataUrl || cfg.mapData || cfg.mapDataUrl;
 
   const center =
     (cfg.defaultMap && Array.isArray(cfg.defaultMap.center) && cfg.defaultMap.center.length === 2)
@@ -21,8 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
       : 10;
 
   const urls = cfg.urls || {};
-  const eventsListUrl = urls.eventsList || "/garage-sale/events/";
-  const createEventUrl = urls.createEvent || "/garage-sale/events/create/";
+  const eventsListUrl = urls.eventsList || "/garage-sale/";
+  const createEventUrl = urls.createEvent || "/garage-sale/owner/event/new/";
 
   if (!mapDataUrl) {
     console.error("window.GARAGE_SALE.mapDataUrl missing.");

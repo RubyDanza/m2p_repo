@@ -69,16 +69,33 @@
 
     <button class="btn btn-success w-100">Create account</button>
   </form>
+
+
+
 </div>
 
 <script>
-  (function(){
-    const roleSelect = document.getElementById("roleSelect");
-    const ownerFields = document.getElementById("ownerFields");
-    function sync(){
-      ownerFields.style.display = (roleSelect.value === "LOCATION_OWNER") ? "block" : "none";
+  (function() {
+    const cb = document.getElementById("id_create_new_location");
+    const box = document.getElementById("new-location-fields");
+    if (!cb || !box) return;
+
+    const inputs = box.querySelectorAll("input, select, textarea");
+
+    function sync() {
+      const on = cb.checked;
+      box.style.display = on ? "block" : "none";
+
+      inputs.forEach(el => {
+        // disable fields when hidden so browser validation won't block submit
+        el.disabled = !on;
+
+        // optional: also toggle required attribute at the HTML level
+        if (!on) el.removeAttribute("required");
+      });
     }
-    roleSelect.addEventListener("change", sync);
+
+    cb.addEventListener("change", sync);
     sync();
   })();
 </script>

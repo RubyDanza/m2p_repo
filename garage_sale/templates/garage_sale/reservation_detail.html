@@ -34,7 +34,7 @@
         <td>${{ r.quantity|mul:r.unit_price }}</td>
         <td>${{ r.unit_price }}</td>
         <td>${{ r.unit_price|floatformat:2|add:""|floatformat:2 }}</td>
-          
+        <td>${{ r.line_total }}</td>
       </tr>
       {% empty %}
       <tr>

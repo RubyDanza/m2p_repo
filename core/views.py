@@ -3,21 +3,17 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
-from .models import User, Location
 from django.http import HttpResponseForbidden
 from .forms import LocationForm
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from .models import Location, User  # adjust if your User import differs
 
 
 User = get_user_model()
 
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import Location, User  # adjust if your User import differs
 
 @login_required
 def location_consultants(request, location_id):
@@ -43,7 +39,6 @@ def location_consultants(request, location_id):
         "consultants": consultants,
         "selected_ids": selected_ids,
     })
-
 
 
 def _safe_next(request):
@@ -110,26 +105,42 @@ def logout_view(request):
     return redirect(nxt or "core:home")
 
 
-
 @require_http_methods(["GET", "POST"])
 def register_view(request):
-    service = (request.GET.get("service") or request.POST.get("service") or "").strip()
+    """
+    Shared registration view for all services (Physio, Garage Sale, etc.)
 
-    if request.method == "GET":
-        return render(request, "core/register.html", {
-            "next": _safe_next(request) or request.GET.get("next", ""),
+    Supports:
+    - ?next=... redirect after registration (safe)
+    - ?service=... (or POST service) so templates can show context
+    - role-based fields:
+        * CUSTOMER / CONSULTANT: username + password
+        * LOCATION_OWNER: also creates the owner's first Location (physio flags preserved)
+    """
+    service = (request.GET.get("service") or request.POST.get("service") or "").strip()
+    next_url = _safe_next(request) or request.GET.get("next", "")  # keep current behavior
+
+    def _render(error=None, prefill=None):
+        ctx = {
+            "error": error,
+            "next": next_url,
             "service": service,
-            "user_model": User,         # ✅ for user_model.Role.choices
-            "prefill": {},              # ✅ template uses prefill.*
-        })
+            "user_model": User,   # template uses user_model.Role.choices
+            "prefill": prefill or {},
+        }
+        return render(request, "core/register.html", ctx)
+
+    # ---- GET ----
+    if request.method == "GET":
+        return _render()
 
     # ---- POST ----
     username = (request.POST.get("username") or "").strip()
-    role = request.POST.get("role") or User.Role.CUSTOMER
+    role = (request.POST.get("role") or User.Role.CUSTOMER).strip()
     pw1 = request.POST.get("password1") or ""
     pw2 = request.POST.get("password2") or ""
 
-    # Owner fields
+    # Owner fields (only required if role == LOCATION_OWNER)
     location_name = (request.POST.get("location_name") or "").strip()
     room_count = (request.POST.get("room_count") or "").strip()
     latitude = (request.POST.get("latitude") or "").strip()
@@ -145,77 +156,45 @@ def register_view(request):
     }
 
     if not username:
-        return render(request, "core/register.html", {
-            "error": "Username required.",
-            "next": _safe_next(request),
-            "service": service,
-            "user_model": User,
-            "prefill": prefill,
-        })
+        return _render("Username required.", prefill)
 
     if pw1 != pw2:
-        return render(request, "core/register.html", {
-            "error": "Passwords do not match.",
-            "next": _safe_next(request),
-            "service": service,
-            "user_model": User,
-            "prefill": prefill,
-        })
+        return _render("Passwords do not match.", prefill)
 
     if User.objects.filter(username=username).exists():
-        return render(request, "core/register.html", {
-            "error": "Username already taken.",
-            "next": _safe_next(request),
-            "service": service,
-            "user_model": User,
-            "prefill": prefill,
-        })
+        return _render("Username already taken.", prefill)
 
     valid_roles = {c[0] for c in User.Role.choices}
     if role not in valid_roles:
         role = User.Role.CUSTOMER
         prefill["role"] = role
 
-    # If owner, validate location fields
+    # If owner, validate and parse owner-specific fields
+    room_count_int = None
+    lat_val = None
+    lng_val = None
+
     if role == User.Role.LOCATION_OWNER:
         if not location_name:
-            return render(request, "core/register.html", {
-                "error": "Location name is required for Location Owners.",
-                "next": _safe_next(request),
-                "service": service,
-                "user_model": User,
-                "prefill": prefill,
-            })
+            return _render("Location name is required for Location Owners.", prefill)
 
         try:
             room_count_int = int(room_count) if room_count else 1
             if room_count_int < 1 or room_count_int > 3:
                 raise ValueError
         except ValueError:
-            return render(request, "core/register.html", {
-                "error": "Rooms must be a number from 1 to 3.",
-                "next": _safe_next(request),
-                "service": service,
-                "user_model": User,
-                "prefill": prefill,
-            })
+            return _render("Rooms must be a number from 1 to 3.", prefill)
 
         try:
             lat_val = float(latitude)
             lng_val = float(longitude)
         except ValueError:
-            return render(request, "core/register.html", {
-                "error": "Latitude and Longitude must be numbers.",
-                "next": _safe_next(request),
-                "service": service,
-                "user_model": User,
-                "prefill": prefill,
-            })
+            return _render("Latitude and Longitude must be numbers.", prefill)
 
     # Create user
     user = User.objects.create_user(username=username, password=pw1, role=role)
 
-    # If owner, create their FIRST location (later locations use /locations/add/)
+    # If owner, create their FIRST location (preserve your Physio defaults)
     if role == User.Role.LOCATION_OWNER:
         Location.objects.create(
             name=location_name,
@@ -230,10 +209,9 @@ def register_view(request):
     login(request, user)
     messages.success(request, "Account created.")
 
-    nxt = _safe_next(request)
-    return redirect(nxt or "core:post_login")
-
-
+    # ✅ IMPORTANT: return to where the user came from (Create Event etc.)
+    # next_url is already safe (via _safe_next); if blank, fall back.
+    return redirect(next_url or "core:post_login")
 
 @login_required
 def location_add(request):

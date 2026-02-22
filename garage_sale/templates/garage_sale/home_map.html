@@ -25,7 +25,7 @@
         zoom: {{ default_map_zoom|default:"10" }}
       },
       urls: {
-        eventsList: "{% url 'garage_sale:events_list' %}",
+        eventsList: "{% url 'garage_sale:home' %}",
         login: "{% url 'core:login' %}?next={% url 'garage_sale:home' %}",
         register: "{% url 'core:register' %}?next={% url 'garage_sale:home' %}"
       },

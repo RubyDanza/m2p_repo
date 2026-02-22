@@ -12,6 +12,10 @@
 
 <body class="min-vh-100 d-flex flex-column bg-light">
 
+<div style="padding:8px 12px; font-size:12px; background:#fffbdd; border-bottom:1px solid #eee;">
+  auth={{ request.user.is_authenticated }} | user={{ request.user.username }} | session={{ request.session.session_key }}
+</div>
+
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="{% url 'garage_sale:home' %}">Garage Sale</a>
@@ -23,7 +27,7 @@
     <div class="collapse navbar-collapse" id="gsNavbar">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'garage_sale:events_list' %}">View Events</a>
+          <a class="nav-link" href="{% url 'garage_sale:home' %}">View Events</a>
         </li>
 
       </ul>

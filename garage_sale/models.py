@@ -2,12 +2,11 @@ from django.db import models
 from django.conf import settings
 
 
+# garage_sale/models.py
 class GarageSaleEvent(models.Model):
     location = models.ForeignKey(
         "core.Location",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         related_name="garage_sale_events",
     )
 

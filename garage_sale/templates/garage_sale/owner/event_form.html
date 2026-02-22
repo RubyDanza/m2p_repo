@@ -1,87 +1,82 @@
-{% extends "garage_sale/base_gs.html" %}
-
-
-{% block title %}Garage Sale - Create Event{% endblock %}
+{% extends "core/base.html" %}
 
 {% block content %}
-<div class="container py-4" style="max-width: 720px;">
+  <div class="container mt-4">
+    <h2 class="mb-3">Create Garage Sale Event</h2>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">Create Event</h1>
-    <a class="btn btn-outline-secondary btn-sm" href="{% url 'garage_sale:home">
-      Back to Events
-    </a>
-  </div>
+    {% if form.errors %}
+      <div class="alert alert-danger">
+        <strong>Form errors:</strong>
+        <pre style="margin:0;">{{ form.errors }}</pre>
+      </div>
+    {% endif %}
 
-  {% if form.errors %}
-    <div class="alert alert-danger">
-      Please fix the errors below.
-    </div>
-  {% endif %}
-
-  <form method="post" class="card shadow-sm">
-    {% csrf_token %}
-    <div class="card-body">
+    <form method="POST">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
 
       <div class="mb-3">
-        <label class="form-label">Title</label>
-        {{ form.title }}
-        {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors }}</div>{% endif %}
+        {{ form.title.label_tag }} {{ form.title }}
+        {{ form.title.errors }}
       </div>
 
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">Start Date</label>
-          {{ form.start_date }}
-          {% if form.start_date.errors %}<div class="text-danger small">{{ form.start_date.errors }}</div>{% endif %}
+      <div class="mb-3">
+        {{ form.start_date.label_tag }} {{ form.start_date }}
+        {{ form.start_date.errors }}
+      </div>
+
+      <div class="mb-3">
+        {{ form.end_date.label_tag }} {{ form.end_date }}
+        {{ form.end_date.errors }}
+      </div>
+
+      <hr>
+
+      <div class="mb-3">
+        {{ form.location.label_tag }} {{ form.location }}
+        {{ form.location.errors }}
+        <div class="form-text">Pick an existing location OR create a new one below.</div>
+      </div>
+
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="id_create_new_location" name="create_new_location" value="1">
+        <label class="form-check-label" for="id_create_new_location">
+          Create a new location for this event
+        </label>
+      </div>
+
+      <div id="new-location-fields" style="display:none;">
+        <h5 class="mt-3">New Location</h5>
+
+        {{ location_form.non_field_errors }}
+
+        <div class="mb-3">
+          {{ location_form.name.label_tag }} {{ location_form.name }}
+          {{ location_form.name.errors }}
         </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">End Date</label>
-          {{ form.end_date }}
-          {% if form.end_date.errors %}<div class="text-danger small">{{ form.end_date.errors }}</div>{% endif %}
+
+        <div class="mb-3">
+          {{ location_form.latitude.label_tag }} {{ location_form.latitude }}
+          {{ location_form.latitude.errors }}
+        </div>
+
+        <div class="mb-3">
+          {{ location_form.longitude.label_tag }} {{ location_form.longitude }}
+          {{ location_form.longitude.errors }}
         </div>
       </div>
 
-      {# If your form includes location OR latitude/longitude, render them here #}
-      {% if form.location %}
-        <div class="mb-3">
-          <label class="form-label">Location</label>
-          {{ form.location }}
-          {% if form.location.errors %}<div class="text-danger small">{{ form.location.errors }}</div>{% endif %}
-        </div>
-      {% endif %}
+      <hr>
 
-      {% if form.latitude %}
-        <div class="mb-3">
-          <label class="form-label">Latitude</label>
-          {{ form.latitude }}
-          {% if form.latitude.errors %}<div class="text-danger small">{{ form.latitude.errors }}</div>{% endif %}
-        </div>
-      {% endif %}
-
-      {% if form.longitude %}
-        <div class="mb-3">
-          <label class="form-label">Longitude</label>
-          {{ form.longitude }}
-          {% if form.longitude.errors %}<div class="text-danger small">{{ form.longitude.errors }}</div>{% endif %}
-        </div>
-      {% endif %}
-
-      {% if form.notes %}
-        <div class="mb-3">
-          <label class="form-label">Notes</label>
-          {{ form.notes }}
-          {% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors }}</div>{% endif %}
-        </div>
-      {% endif %}
-
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" type="submit">Save Event</button>
-        <a class="btn btn-outline-secondary" href="{% url 'garage_sale:home">Cancel</a>
+      <div class="mb-3">
+        {{ form.consultant.label_tag }} {{ form.consultant }}
+        {{ form.consultant.errors }}
+        <div class="form-text">Optional.</div>
       </div>
 
-    </div>
-  </form>
+      <button class="btn btn-primary" type="submit">Save Event</button>
+      <a class="btn btn-outline-secondary" href="{% url 'garage_sale:home' %}">Cancel</a>
+    </form>
+  </div>
 
-</div>
 {% endblock %}
