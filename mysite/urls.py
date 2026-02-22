@@ -13,6 +13,7 @@ urlpatterns = [
     # Businesses
     path("physio/", include(("physio.urls", "physio"), namespace="physio")),
     path("garage-sale/", include(("garage_sale.urls", "garage_sale"), namespace="garage_sale")),
+    path("accounts/", include("django.contrib.auth.urls")),
 
 ]
 

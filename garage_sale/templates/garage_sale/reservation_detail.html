@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <h2 class="mb-3">Reservation Confirmed</h2>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <p><strong>Reservation ID:</strong> {{ reservation.id }}</p>
+      <p><strong>Status:</strong> {{ reservation.status }}</p>
+      <p><strong>Total:</strong> ${{ reservation.total_amount }}</p>
+      <p><strong>Created:</strong> {{ reservation.created_at }}</p>
+    </div>
+  </div>
+
+  <h4>Items</h4>
+
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Item</th>
+        <th>Qty</th>
+        <th>Unit Price</th>
+        <th>Line Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in items %}
+      <tr>
+        <td>{{ r.item.event.title }}</td>
+        <td>{{ r.item.name }}</td>
+        <td>${{ r.quantity|mul:r.unit_price }}</td>
+        <td>${{ r.unit_price }}</td>
+        <td>${{ r.unit_price|floatformat:2|add:""|floatformat:2 }}</td>
+          
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5">No items found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <a href="{% url 'garage_sale:home' %}" class="btn btn-primary">
+    Back to Garage Sales
+  </a>
+
+</div>
+{% endblock %}

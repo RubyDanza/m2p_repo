@@ -32,8 +32,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "core",
-    "physio",
     "garage_sale",
+    "physio",
 ]
 
 AUTH_USER_MODEL = "core.User"
@@ -68,6 +68,16 @@ TEMPLATES = [
     },
 ]
 
+DEBUG = True
+
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+
+# good dev defaults
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
 
 LOGIN_URL = "core:login"
 LOGIN_REDIRECT_URL = "core:post_login"
@@ -91,6 +101,8 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+
 
 # STATIC FILES
 STATIC_URL = "/static/"
