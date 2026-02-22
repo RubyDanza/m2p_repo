@@ -68,7 +68,7 @@ TEMPLATES = [
     },
 ]
 
-DEBUG = True
+DEBUG = False
 
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
