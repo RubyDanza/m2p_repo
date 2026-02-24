@@ -6,7 +6,7 @@
 {% block navbar %}
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="{% url 'garage_sale:home' %}">Garage Sale</a>
+    <a class="btn btn-success" href="{% url 'garage_sale:home' %}">Garage Sale</a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#gsNavbar">
       <span class="navbar-toggler-icon"></span>
@@ -18,7 +18,7 @@
           Hi {{ request.user.username }}{% if request.user.role %} ({{ request.user.role }}){% endif %}
         </span>
 
-        <a class="btn btn-outline-danger btn-sm"
+        <a class="btn btn-success"
            href="{% url 'core:logout' %}?next={% url 'garage_sale:home' %}">
           Logout
         </a>

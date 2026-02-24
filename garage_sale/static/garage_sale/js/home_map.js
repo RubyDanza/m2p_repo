@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const urls = cfg.urls || {};
   const eventsListUrl = urls.eventsList || "/garage-sale/";
-  const createEventUrl = urls.createEvent || "/garage-sale/owner/event/new/";
+  const createEventUrl = urls.createEvent;;
 
   if (!mapDataUrl) {
     console.error("window.GARAGE_SALE.mapDataUrl missing.");
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const itemsUrl = ev.items_url || "#";
 
         const itemsAction = canShop
-          ? `<a class="btn btn-sm btn-black" href="${itemsUrl}">View items</a>`
+          ? `<a class="btn btn-black" href="${itemsUrl}">View items</a>`
           : `<span class="muted">Login as a Customer to view items.</span>`;
 
         const popupHtml = `

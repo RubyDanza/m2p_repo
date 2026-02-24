@@ -1,14 +1,29 @@
 from decimal import Decimal
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from .forms import GarageSaleEventForm, LocationCreateForm
 from .models import GarageSaleEvent, SaleItem, Reservation, ReservationItem
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from .forms import SaleItemForm
 
+
+@login_required
+def owner_items(request, event_id: int):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
+
+    items = SaleItem.objects.filter(event=event).order_by("title", "id")
+
+    return render(request, "garage_sale/owner/items_list.html", {
+        "event": event,
+        "items": items,
+        "is_owner": True,
+        "preselected": set(),
+    })
 
 # -------------------------
 # Helpers: session cart
@@ -72,6 +87,18 @@ def map_data(request):
         })
 
     return JsonResponse({"pins": pins})
+
+def events_list(request):
+    today = timezone.localdate()
+    events = (
+        GarageSaleEvent.objects
+        .select_related("location")
+        .order_by("-start_date", "-id")
+    )
+    return render(request, "garage_sale/events_list.html", {
+        "events": events,
+        "today": today,
+    })
 
 
 def event_detail(request, event_id: int):
@@ -275,7 +302,7 @@ def owner_event_create(request):
                 event_form.save_m2m()
 
             # ✅ IMPORTANT: redirect after POST so the form doesn't show again
-            return redirect("garage_sale:owner_dashboard")
+            return redirect("garage_sale:owner_items", event_id=event.id)
 
         # invalid -> fall through and re-render with errors
         return render(request, "garage_sale/owner/event_form.html", {
@@ -295,11 +322,37 @@ def owner_event_edit(request, event_id: int):
     return render(request, "garage_sale/owner/event_form.html", {"event": event})
 
 
+
+
 @login_required
-def owner_items(request, event_id: int):
+def owner_item_create(request, event_id: int):
     event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
-    items = SaleItem.objects.filter(event=event).order_by("name", "id")
-    return render(request, "garage_sale/owner/items_list.html", {"event": event, "items": items})
+
+    if request.method == "POST":
+        form = SaleItemForm(request.POST)
+
+        # DEBUG (safe to leave during dev)
+        print("POST /owner_item_create", "event_id=", event_id)
+        print("POST data:", dict(request.POST))
+
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.event = event
+            item.save()
+            messages.success(request, "Item added.")
+            return redirect("garage_sale:owner_items", event_id=event.id)
+
+        # If invalid, show errors on the page (no 500)
+        print("FORM ERRORS:", form.errors)
+
+    else:
+        form = SaleItemForm()
+
+    return render(request, "garage_sale/owner/item_form.html", {
+        "event": event,
+        "form": form,
+        "mode": "create",
+    })
 
 
 @login_required
@@ -312,3 +365,64 @@ def owner_event_reservations(request, event_id: int):
         .order_by("-id")
     )
     return render(request, "garage_sale/owner/reservations.html", {"event": event, "reservations": reservations})
+
+
+
+@login_required
+def owner_item_create(request, event_id: int):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
+
+    if request.method == "POST":
+        form = SaleItemForm(request.POST)
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.event = event
+            item.save()
+            messages.success(request, "Item added.")
+            return redirect("garage_sale:owner_items", event_id=event.id)
+    else:
+        form = SaleItemForm()
+
+    return render(request, "garage_sale/owner/item_form.html", {
+        "event": event,
+        "form": form,
+        "mode": "create",
+    })
+
+
+@login_required
+def owner_item_edit(request, item_id: int):
+    item = get_object_or_404(SaleItem, pk=item_id, event__owner=request.user)
+    event = item.event
+
+    if request.method == "POST":
+        form = SaleItemForm(request.POST, instance=item)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Item updated.")
+            return redirect("garage_sale:owner_items", event_id=event.id)
+    else:
+        form = SaleItemForm(instance=item)
+
+    return render(request, "garage_sale/owner/item_form.html", {
+        "event": event,
+        "form": form,
+        "mode": "edit",
+        "item": item,
+    })
+
+
+@login_required
+def owner_item_delete(request, item_id: int):
+    item = get_object_or_404(SaleItem, pk=item_id, event__owner=request.user)
+    event_id = item.event_id
+
+    if request.method == "POST":
+        item.delete()
+        messages.success(request, "Item deleted.")
+        return redirect("garage_sale:owner_items", event_id=event_id)
+
+    return render(request, "garage_sale/owner/item_confirm_delete.html", {
+        "item": item,
+        "event_id": event_id,
+    })

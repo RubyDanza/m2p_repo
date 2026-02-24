@@ -13,50 +13,51 @@
 <body class="bg-light min-vh-100 d-flex flex-column">
 
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
-  <div class="container-fluid">
+      <div class="container-fluid">
 
-    <a class="navbar-brand fw-bold" href="{% url 'core:home' %}">
-      M2P
-    </a>
-
-    {% block navbar_center %}{% endblock %}
-
-    <div class="ms-auto d-flex gap-2 align-items-center">
-
-      {% if user.is_authenticated %}
-
-        <span class="text-muted small">
-          Hi {{ user.username }} ({{ user.role }})
-        </span>
-
-        {% if user.role == "LOCATION_OWNER" %}
-          <a class="btn btn-outline-success btn-sm"
-             href="{% url 'core:location_add' %}">
-            + Add Location
+          <a class="navbar-brand fw-bold" href="{% url 'core:home' %}">
+            M2P
           </a>
-        {% endif %}
 
-        {# IMPORTANT: don't redirect back to the same protected page after logout #}
-        <a class="btn btn-outline-danger btn-sm"
-           href="{% url 'core:logout' %}">
-          Logout
-        </a>
+          {% block navbar_center %}{% endblock %}
 
-      {% else %}
+          <div class="ms-auto d-flex gap-3 align-items-center">
 
-        <a class="btn btn-outline-primary btn-sm"
-           href="{% url 'core:login' %}?next={{ request.get_full_path|urlencode }}">
-          Login
-        </a>
+        {% with nxt=next_url|default:request.get_full_path %}
+          {% if user.is_authenticated %}
 
-        <a class="btn btn-primary btn-sm"
-           href="{% url 'core:register' %}?next={{ request.get_full_path|urlencode }}">
-          Register
-        </a>
+            <span class="text-dark fw-semibold">
+              Hi {{ user.username }}
+            </span>
 
-      {% endif %}
+            {% if user.role == "LOCATION_OWNER" %}
+              <a class="btn btn-outline-success"
+                href="{% url 'core:location_add' %}">
+                + Add Location
+              </a>
+            {% endif %}
 
-    </div>
+            <a class="btn btn-danger"
+              href="{% url 'core:logout' %}?next={{ nxt|urlencode }}">
+              Logout
+            </a>
+
+          {% else %}
+
+            <a class="btn btn-outline-dark"
+              href="{% url 'core:login' %}?next={{ nxt|urlencode }}">
+              Login
+            </a>
+
+            <a class="btn btn-success"
+              href="{% url 'core:register' %}?next={{ nxt|urlencode }}">
+              Register
+            </a>
+
+          {% endif %}
+        {% endwith %}
+
+      </div>
   </div>
 </nav>
 

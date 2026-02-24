@@ -1,0 +1,51 @@
+{% extends "core/base.html" %}
+{% block title %}{% if mode == "edit" %}Edit Item{% else %}Add Item{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+  <h2 class="h4 mb-3">
+    {% if mode == "edit" %}Edit Item{% else %}Add Item{% endif %}
+    <span class="text-muted">— {{ event.title }}</span>
+  </h2>
+
+  <form method="post" class="card border-0 shadow-sm">
+    {% csrf_token %}
+    <div class="card-body">
+      {{ form.non_field_errors }}
+
+      <div class="mb-3">
+        {{ form.title.label_tag }} {{ form.title }}
+        {{ form.title.errors }}
+      </div>
+
+      <div class="mb-3">
+        {{ form.description.label_tag }} {{ form.description }}
+        {{ form.description.errors }}
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          {{ form.price.label_tag }} {{ form.price }}
+          {{ form.price.errors }}
+        </div>
+        <div class="col-md-4">
+          {{ form.quantity_available.label_tag }} {{ form.quantity_available }}
+          {{ form.quantity_available.errors }}
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <div class="form-check">
+            {{ form.is_listed }} {{ form.is_listed.label_tag }}
+            {{ form.is_listed.errors }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-footer bg-white d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Save</button>
+      <a class="btn btn-outline-secondary"
+         href="{% url 'garage_sale:owner_items' event.id %}">Back</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

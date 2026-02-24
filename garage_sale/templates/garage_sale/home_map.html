@@ -1,21 +1,18 @@
 {% extends "garage_sale/base.html" %}
 {% load static %}
 
-{% block title %}Garage Sale{% endblock %}
+{% block title %}Physio{% endblock %}
 
 {% block head_extra %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
     #map-wrap { height: calc(100vh - 56px); }
     #map { width: 100%; height: 100%; }
-    .muted { color:#666; font-size: 12px; }
   </style>
 {% endblock %}
 
 {% block content %}
-  <div id="map-wrap" class="d-flex">
-    <div id="map" class="flex-grow-1"></div>
-  </div>
+  <div id="map-wrap"><div id="map"></div></div>
 
   <script>
     window.GARAGE_SALE = {
@@ -25,9 +22,11 @@
         zoom: {{ default_map_zoom|default:"10" }}
       },
       urls: {
-        eventsList: "{% url 'garage_sale:home' %}",
-        login: "{% url 'core:login' %}?next={% url 'garage_sale:home' %}",
-        register: "{% url 'core:register' %}?next={% url 'garage_sale:home' %}"
+        eventsList: "{% url 'garage_sale:events_list' %}",
+        createEvent: "{% url 'garage_sale:owner_event_create' %}",
+
+        login: "{% url 'core:login' %}?next={% url 'garage_sale:owner_event_create' %}",
+        register: "{% url 'core:register' %}?next={% url 'garage_sale:owner_event_create' %}"
       },
       isLoggedIn: {{ request.user.is_authenticated|yesno:"true,false" }},
       userRole: "{{ request.user.role|default:'' }}"

@@ -1,0 +1,23 @@
+{% extends "core/base.html" %}
+{% block title %}Delete Item{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+  <h2 class="h4 mb-3">Delete Item</h2>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <p>Are you sure you want to delete <strong>{{ item.title }}</strong>?</p>
+      <p class="text-muted mb-0">This cannot be undone.</p>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+      <form method="post" class="m-0">
+        {% csrf_token %}
+        <button class="btn btn-danger" type="submit">Yes, delete</button>
+      </form>
+      <a class="btn btn-outline-secondary"
+         href="{% url 'garage_sale:owner_items' event_id %}">Cancel</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

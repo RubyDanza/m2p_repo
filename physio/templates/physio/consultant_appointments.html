@@ -13,10 +13,10 @@
 
       {% if appt.status == "PENDING" %}
         <a href="{% url 'physio:consultant_accept' appt.id %}"
-           class="btn btn-sm btn-success mt-2">Accept</a>
+           class="btn btn-success mt-2">Accept</a>
 
         <a href="{% url 'physio:consultant_decline' appt.id %}"
-           class="btn btn-sm btn-danger mt-2">Decline</a>
+           class="btn btn-danger mt-2">Decline</a>
       {% endif %}
     </div>
   {% empty %}

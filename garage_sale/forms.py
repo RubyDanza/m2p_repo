@@ -1,6 +1,21 @@
-from django import forms
 from core.models import Location
 from .models import GarageSaleEvent
+from django import forms
+from .models import SaleItem
+
+
+
+class SaleItemForm(forms.ModelForm):
+    class Meta:
+        model = SaleItem
+        fields = ["title", "description", "price", "quantity_available", "is_listed"]
+
+    def clean_price(self):
+        price = self.cleaned_data.get("price")
+        if price is None:
+            return 0
+        return price
+
 
 
 class GarageSaleEventForm(forms.ModelForm):

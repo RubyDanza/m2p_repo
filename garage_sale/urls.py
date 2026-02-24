@@ -8,6 +8,7 @@ urlpatterns = [
     # Public
     path("", views.home, name="home"),
     path("map-data/", views.map_data, name="map_data"),
+    path("events/", views.events_list, name="events_list"),
     path("event/<int:event_id>/", views.event_detail, name="event_detail"),
 
     # Cart + checkout (simple version)
@@ -23,4 +24,8 @@ urlpatterns = [
     path("owner/event/<int:event_id>/edit/", views.owner_event_edit, name="owner_event_edit"),
     path("owner/event/<int:event_id>/items/", views.owner_items, name="owner_items"),
     path("owner/event/<int:event_id>/reservations/", views.owner_event_reservations, name="owner_event_reservations"),
+
+    path("owner/event/<int:event_id>/items/new/", views.owner_item_create, name="owner_item_create"),
+    path("owner/item/<int:item_id>/edit/", views.owner_item_edit, name="owner_item_edit"),
+    path("owner/item/<int:item_id>/delete/", views.owner_item_delete, name="owner_item_delete"),
 ]
