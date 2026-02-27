@@ -17,16 +17,16 @@
   <script>
     window.GARAGE_SALE = {
       mapDataUrl: "{% url 'garage_sale:map_data' %}",
-      defaultMap: {
-        center: {{ default_map_center|default:"[-37.8136, 144.9631]"|safe }},
-        zoom: {{ default_map_zoom|default:"10" }}
-      },
+
       urls: {
         eventsList: "{% url 'garage_sale:events_list' %}",
         createEvent: "{% url 'garage_sale:owner_event_create' %}",
-
         login: "{% url 'core:login' %}?next={% url 'garage_sale:owner_event_create' %}",
         register: "{% url 'core:register' %}?next={% url 'garage_sale:owner_event_create' %}"
+      },
+      defaultMap: {
+        center: {{ default_map_center|default:"[-37.8136, 144.9631]"|safe }},
+        zoom: {{ default_map_zoom|default:"10" }}
       },
       isLoggedIn: {{ request.user.is_authenticated|yesno:"true,false" }},
       userRole: "{{ request.user.role|default:'' }}"
