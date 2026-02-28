@@ -10,6 +10,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from .forms import SaleItemForm
+from datetime import timedelta
+from django.db.models import Q
+
 
 
 @login_required
@@ -58,20 +61,34 @@ def home(request):
 
 
 def map_data(request):
-    """
-    Returns pins for the map.
-    Keep it lightweight: only data you need for the popup.
-    """
     today = timezone.localdate()
+    range_key = (request.GET.get("range") or "today").lower()
+
+    if range_key == "tomorrow":
+        start = today + timedelta(days=1)
+        end = start
+    elif range_key == "week":
+        start = today
+        end = today + timedelta(days=7)
+    elif range_key == "month":
+        start = today
+        end = today + timedelta(days=30)
+    else:
+        start = today
+        end = today
+
     qs = (
         GarageSaleEvent.objects
         .select_related("owner", "location")
+        .filter(
+            Q(start_date__lte=end, end_date__gte=start) |
+            Q(end_date__isnull=True, start_date__gte=start, start_date__lte=end)
+        )
         .order_by("start_date", "id")
     )
 
     pins = []
     for ev in qs:
-        # Using Location for lat/lng (since event has FK location)
         loc = ev.location
         if not loc or loc.latitude is None or loc.longitude is None:
             continue
@@ -86,8 +103,13 @@ def map_data(request):
             "detail_url": reverse("garage_sale:event_detail", args=[ev.id]),
         })
 
-    return JsonResponse({"pins": pins})
-
+    return JsonResponse({
+        "pins": pins,
+        "events": pins,  # backward compat
+        "range": range_key,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+    })
 def events_list(request):
     today = timezone.localdate()
     events = (

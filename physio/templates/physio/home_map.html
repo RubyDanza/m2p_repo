@@ -3,36 +3,45 @@
 
 {% block title %}Physio{% endblock %}
 
+{# Make map pages full-bleed (no container padding) #}
+{% block page_wrap_open %}
+<main class="flex-grow-1 p-0" id="page-main">
+{% endblock %}
+{% block page_wrap_close %}</main>{% endblock %}
+
 {% block head_extra %}
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
-    #map-wrap { height: calc(100vh - 56px); }
+    html, body { height: 100%; }
+    #page-main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    #map-wrap { flex: 1; min-height: 0; }
     #map { width: 100%; height: 100%; }
   </style>
 {% endblock %}
 
 {% block content %}
   <div id="map-wrap"><div id="map"></div></div>
-
-  <script>
-  window.PHYSIO = {
-    mapDataUrl: "{% url 'physio:map_data' %}",
-    timeslotsUrl: "{% url 'physio:api_timeslots' %}",
-    consultantsUrl: "{% url 'physio:api_available_consultants' %}",
-    bookUrl: "{% url 'physio:request_booking' %}",
-    loginUrl: "{% url 'core:login' %}?next={{ request.get_full_path|urlencode }}",
-    defaultMap: {
-      center: {{ default_map_center|default:"[-37.8136, 144.9631]"|safe }},
-      zoom: {{ default_map_zoom|default:"10" }}
-    },
-    isLoggedIn: {{ request.user.is_authenticated|yesno:"true,false" }},
-    userRole: "{{ request.user.role|default:'' }}"
-  };
-</script>
-
 {% endblock %}
 
 {% block scripts %}
+  {{ block.super }}
+
+  <script>
+    window.PHYSIO = {
+      mapDataUrl: "{% url 'physio:map_data' %}",
+      timeslotsUrl: "{% url 'physio:api_timeslots' %}",
+      consultantsUrl: "{% url 'physio:api_available_consultants' %}",
+      bookUrl: "{% url 'physio:request_booking' %}",
+      loginUrl: "{% url 'core:login' %}?next={{ request.get_full_path|urlencode }}",
+      defaultMap: {
+        center: {{ default_map_center|default:"[-37.8136, 144.9631]"|safe }},
+        zoom: {{ default_map_zoom|default:"10" }}
+      },
+      isLoggedIn: {{ request.user.is_authenticated|yesno:"true,false" }},
+      userRole: "{{ request.user.role|default:'' }}"
+    };
+  </script>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="{% static 'physio/js/home_map.js' %}"></script>
 {% endblock %}
