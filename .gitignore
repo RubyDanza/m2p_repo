@@ -13,6 +13,7 @@ env/
 # Static build output
 staticfiles/
 
+
 # Media uploads (if you have them)
 media/
 

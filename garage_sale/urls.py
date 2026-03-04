@@ -10,6 +10,8 @@ urlpatterns = [
     path("map-data/", views.map_data, name="map_data"),
     path("events/", views.events_list, name="events_list"),
     path("event/<int:event_id>/", views.event_detail, name="event_detail"),
+    path("events/create/", views.owner_event_create, name="event_create"),
+    path("item/<int:item_id>/", views.item_detail, name="item_detail"),
 
     # Cart + checkout (simple version)
     path("cart/", views.cart_view, name="cart"),

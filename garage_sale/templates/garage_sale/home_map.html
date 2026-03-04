@@ -3,7 +3,7 @@
 
 {% block title %}Garage Sale{% endblock %}
 
-{# Make map pages full-bleed (no container padding) #}
+{# Make map pages full-bleed (no container/padding) #}
 {% block page_wrap_open %}
 <main class="flex-grow-1 p-0" id="page-main">
 {% endblock %}
@@ -13,49 +13,48 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
     html, body { height: 100%; }
-    #page-main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    #map-wrap {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-    }
-    #map { width: 100%; height: 100%; }
+    #page-main { display:flex; flex-direction:column; flex:1; min-height:0; }
+    #map-wrap { flex:1; min-height:0; position:relative; }
+    #map { width:100%; height:100%; }
+    #gsRange { max-width: 160px; }
   </style>
 {% endblock %}
 
 {% block content %}
-  <div class="position-absolute start-0 m-5" style="center: 12px; z-index: 1000;">
-    <select id="gsRange" class="form-select form-select-sm">
-      <option value="today" selected>Today</option>
-      <option value="tomorrow">Tomorrow</option>
-      <option value="week">This week</option>
-      <option value="month">This month</option>
-    </select>
+  <div id="map-wrap">
+    <!-- Filter dropdown (inside map so it doesn't fight navbar layout) -->
+    <div class="position-absolute start-0 m-3" style="top: 60px; z-index: 1000;">
+      <select id="gsRange" class="form-select form-select-sm">
+        <option value="today" selected>Today</option>
+        <option value="tomorrow">Tomorrow</option>
+        <option value="week">This week</option>
+        <option value="month">This month</option>
+      </select>
+    </div>
+
+    <div id="map"></div>
   </div>
-  <div id="map-wrap"><div id="map"></div></div>
+
+  <script>
+  window.GARAGE_SALE = {
+    mapDataUrl: "{% url 'garage_sale:map_data' %}",
+    urls: {
+      eventsList: "{% url 'garage_sale:events_list' %}",
+      createEvent: "{% url 'garage_sale:owner_event_create' %}",
+      eventDetailBase: "{% url 'garage_sale:home' %}event/"
+    },
+    defaultMap: {
+      center: {{ default_map_center|default:"[-37.8136, 144.9631]"|safe }},
+      zoom: {{ default_map_zoom|default:"10" }}
+    },
+    isLoggedIn: {{ request.user.is_authenticated|yesno:"true,false" }},
+    userRole: "{{ request.user.role|default:'' }}"
+  };
+</script>
 {% endblock %}
 
 {% block scripts %}
   {{ block.super }}
-
-  <script>
-    window.GARAGE_SALE = {
-      mapDataUrl: "{% url 'garage_sale:map_data' %}",
-      urls: {
-        eventsList: "{% url 'garage_sale:events_list' %}",
-        createEvent: "{% url 'garage_sale:owner_event_create' %}",
-        login: "{% url 'core:login' %}?next={% url 'garage_sale:owner_event_create' %}",
-        register: "{% url 'core:register' %}?next={% url 'garage_sale:owner_event_create' %}"
-      },
-      defaultMap: {
-        center: {{ default_map_center|default:"[-37.8136, 144.9631]"|safe }},
-        zoom: {{ default_map_zoom|default:"10" }}
-      },
-      isLoggedIn: {{ request.user.is_authenticated|yesno:"true,false" }},
-      userRole: "{{ request.user.role|default:'' }}"
-    };
-  </script>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="{% static 'garage_sale/js/home_map.js' %}"></script>
-{% endblock %}S
+  <script src="{% static 'garage_sale/js/home_map.js' %}?v=20260302_1"></script>
+{% endblock %}

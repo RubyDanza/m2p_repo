@@ -1,129 +1,95 @@
-{% extends "garage_sale/base_gs.html" %}
+{% extends "garage_sale/base.html" %}
 
-{% load static %}
+{% block title %}{{ event.title|default:"Garage Sale" }}{% endblock %}
 
-{% block title %}{{ event.title|default:"Garage Sale Event" }}{% endblock %}
-
-{% block body %}
+{% block gs_content %}
 <div class="container py-4">
 
   <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
-      <h2 class="mb-1">
-        {{ event.title|default:"Garage Sale" }}
-      </h2>
+      <h2 class="mb-1">{{ event.title|default:"Garage Sale" }}</h2>
+
       <div class="text-muted small">
-        {{ event.start_date }} → {{ event.end_date }}
+        {{ event.start_date }}{% if event.end_date %} → {{ event.end_date }}{% endif %}
       </div>
-      <div class="text-muted small">
-        Location: {{ event.location.name }}
-      </div>
+
+      {% if event.location %}
+        <div class="text-muted small">Location: {{ event.location.name }}</div>
+      {% endif %}
+
       {% if event.consultant %}
-        <div class="text-muted small">
-          Consultant: {{ event.consultant.username }}
-        </div>
+        <div class="text-muted small">Consultant: {{ event.consultant.username }}</div>
       {% endif %}
     </div>
 
     <div class="text-end">
-      <a href="{% url 'garage_sale:home' %}" class="btn btn-outline-secondary btn-sm">
-        ← Back to Events
+      <a href="{% url 'garage_sale:home' %}" class="btn btn-outline-secondary btn-sm">← Back to Map</a>
+      <a href="{% url 'garage_sale:cart' %}" class="btn btn-outline-dark btn-sm ms-2">
+        Cart{% if cart_count %} ({{ cart_count }}){% endif %}
       </a>
     </div>
   </div>
 
-  {% if event.notes %}
-    <div class="card mb-4">
-      <div class="card-body">
-        <h6 class="card-subtitle mb-2 text-muted">Notes</h6>
-        <p class="mb-0">{{ event.notes }}</p>
-      </div>
-    </div>
-  {% endif %}
-
-  <!-- Owner Controls -->
   {% if is_owner %}
     <div class="mb-3">
-      <a href="{% url 'garage_sale:item_create' event.id %}" class="btn btn-primary btn-sm">
-        + Add Item
+      <a class="btn btn-primary btn-sm"
+         href="{% url 'garage_sale:owner_item_create' event.id %}">
+        + Add item
       </a>
-
-      {% if event.consultant %}
-        <span class="badge bg-success ms-2">Consultant Assigned</span>
-      {% else %}
-        <span class="badge bg-warning text-dark ms-2">No Consultant Assigned</span>
-      {% endif %}
+      <a class="btn btn-outline-primary btn-sm ms-2"
+         href="{% url 'garage_sale:owner_items' event.id %}">
+        Manage items
+      </a>
     </div>
   {% endif %}
 
-  <!-- Items Section -->
   <div class="card">
-    <div class="card-header">
-      <strong>Items</strong>
-    </div>
-    <div class="card-body p-0">
+    <div class="card-header"><strong>Items for sale</strong></div>
 
+    <div class="card-body p-0">
       {% if items %}
         <table class="table table-striped table-hover mb-0">
           <thead class="table-light">
             <tr>
-              <th>Title</th>
+              <th>Item</th>
               <th>Description</th>
               <th>Price</th>
               <th>Available</th>
-              {% if is_owner %}
-                <th style="width:140px;">Actions</th>
-              {% endif %}
+              <th style="width:220px;">Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {% for item in items %}
               <tr>
-                <td>{{ item.title }}</td>
+                <td class="fw-semibold">{{ item.title }}</td>
                 <td>{{ item.description|default:"-" }}</td>
                 <td>${{ item.price }}</td>
+                <td>{{ item.quantity_available }}</td>
                 <td>
-                  {% if item.is_available %}
-                    {{ item.quantity_available }}
-                  {% else %}
-                    <span class="text-danger">Not available</span>
+                  <a class="btn btn-success"
+                     href="{% url 'garage_sale:item_detail' item.id %}">
+                    View Details
+                  </a>
+
+                  {% if can_shop %}
+                    <form method="post" action="{% url 'garage_sale:cart_add' %}" class="d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="item_id" value="{{ item.id }}">
+                      <input type="hidden" name="qty" value="1">
+                      <button class="btn btn-dark btn-sm" type="submit">Add</button>
+                    </form>
                   {% endif %}
                 </td>
-
-                {% if is_owner %}
-                  <td>
-                    <a href="{% url 'garage_sale:item_edit' item.id %}"
-                       class="btn btn-outline-primary">
-                      Edit
-                    </a>
-                    <a href="{% url 'garage_sale:item_delete' item.id %}"
-                       class="btn btn-outline-danger">
-                      Delete
-                    </a>
-                  </td>
-                {% endif %}
               </tr>
             {% endfor %}
           </tbody>
         </table>
       {% else %}
-        <div class="p-3">
-          <span class="text-muted">No items added yet.</span>
-        </div>
+        <div class="p-3 text-muted">No items listed for this event yet.</div>
       {% endif %}
-
     </div>
   </div>
-
-  <!-- Customer Button -->
-  {% if user.is_authenticated and user.role == "CUSTOMER" %}
-    <div class="mt-4">
-      <a href="{% url 'garage_sale:items_list' event.id %}"
-         class="btn btn-success">
-        Browse & Select Items
-      </a>
-    </div>
-  {% endif %}
 
 </div>
 {% endblock %}

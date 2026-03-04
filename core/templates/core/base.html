@@ -15,20 +15,17 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
       <div class="container-fluid">
 
-          <a class="navbar-brand fw-bold" href="{% url 'core:home' %}">
-            INTERNUNCIO
-          </a>
 
           {% block navbar_center %}{% endblock %}
 
           <div class="ms-auto d-flex gap-3 align-items-center">
 
-        {% with nxt=next_url|default:request.get_full_path %}
-          {% if user.is_authenticated %}
+            {% with nxt=next_url|default:request.get_full_path %}
+              {% if user.is_authenticated %}
 
-            <span class="text-dark fw-semibold">
-              Hi {{ user.username }}
-            </span>
+              <span class="text-dark fw-semibold">
+                Hi {{ user.username }}
+              </span>
 
             {% if user.role == "LOCATION_OWNER" %}
               <a class="btn btn-outline-success"
@@ -37,7 +34,7 @@
               </a>
             {% endif %}
 
-            <a class="btn btn-danger"
+            <a class="btn btn-primary"
               href="{% url 'core:logout' %}?next={{ nxt|urlencode }}">
               Logout
             </a>

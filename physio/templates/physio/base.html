@@ -6,7 +6,7 @@
 {% block navbar_center %}
   <ul class="navbar-nav me-auto mb-2 mb-lg-0">
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'physio:home' %}">Physio</a>
+      <a class="btn btn-success" href="{% url 'physio:home' %}">Physio</a>
     </li>
 
     {% if user.is_authenticated and user.role == "CONSULTANT" %}

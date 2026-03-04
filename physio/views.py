@@ -27,9 +27,12 @@ from django.contrib import messages
 
 @ensure_csrf_cookie
 def home(request):
+    default_center = getattr(settings, "DEFAULT_MAP_CENTER", [-37.8136, 144.9631])
+    default_zoom = getattr(settings, "DEFAULT_MAP_ZOOM", 10)
+
     return render(request, "physio/home_map.html", {
-        "default_map_center": [-37.8136, 144.9631],
-        "default_map_zoom": 10,
+        "default_map_center": default_center,
+        "default_map_zoom": default_zoom,
     })
 
 

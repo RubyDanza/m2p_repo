@@ -6,18 +6,19 @@
 {% block navbar_center %}
   <ul class="navbar-nav me-auto mb-2 mb-lg-0">
     <li class="nav-item">
-      <a class="nav-link" href="{% url 'garage_sale:home' %}">Garage Sale</a>
+      <a class="btn btn-success" href="{% url 'garage_sale:home' %}">Garage Sale</a>
     </li>
 
     <li class="nav-item">
       <a class="nav-link" href="{% url 'garage_sale:events_list' %}">View Events</a>
     </li>
 
-    {# Re-enable gating when ready #}
-    {# {% if user.is_authenticated and user.role == "LOCATION_OWNER" %} #}
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'garage_sale:owner_dashboard' %}">Owner Dashboard</a>
-      </li>
-    {# {% endif %} #}
+    <li class="nav-item">
+      <a class="nav-link" href="{% url 'garage_sale:owner_event_create' %}">Create Event</a>
+    </li>
   </ul>
+{% endblock %}
+
+{% block content %}
+  {% block gs_content %}{% endblock %}
 {% endblock %}

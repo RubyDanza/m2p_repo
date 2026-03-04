@@ -68,7 +68,7 @@ TEMPLATES = [
     },
 ]
 
-DEBUG = False
+DEBUG = True
 
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
@@ -77,6 +77,9 @@ CSRF_COOKIE_SECURE = False
 # good dev defaults
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+
+# DEFAULT_MAP_CENTER = [-37.8136, 144.9631]
+# DEFAULT_MAP_ZOOM = 10
 
 
 LOGIN_URL = "core:login"
@@ -107,10 +110,11 @@ else:
 # STATIC FILES
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# STATICFILES_DIRS = [BASE_DIR / "static"]
 
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+# Use WhiteNoise manifest storage ONLY in production
+if not DEBUG:
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        }
     }
-}
