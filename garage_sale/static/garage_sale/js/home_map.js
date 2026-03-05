@@ -116,7 +116,12 @@ document.addEventListener("DOMContentLoaded", () => {
       // Always safe (fallback keeps local dev working)
       let eventDetailBase = urls.eventDetailBase || "/garage-sale/event/";
       if (!eventDetailBase.endsWith("/")) eventDetailBase += "/";
-      const detailUrl = `${eventDetailBase}${p.id}/`;
+          const isOwner = window.CURRENT_USER_ID &&
+            p.owner_id === window.CURRENT_USER_ID;
+
+          const detailUrl = isOwner
+            ? `${eventDetailBase}${p.id}/manage/`
+            : `${eventDetailBase}${p.id}/`;
 
       const action = `<a class="btn btn-success" href="${detailUrl}">View details</a>`;
 

@@ -11,7 +11,7 @@ Cleaned + de-duplicated.
 """
 
 from __future__ import annotations
-
+from django.http import HttpResponseForbidden
 from datetime import timedelta
 from decimal import Decimal
 
@@ -118,7 +118,12 @@ def map_data(request):
             "start_date": ev.start_date.isoformat() if ev.start_date else None,
             "end_date": ev.end_date.isoformat() if ev.end_date else None,
             "detail_url": reverse("garage_sale:event_detail", args=[ev.id]),
+            "manage_url": reverse("garage_sale:event_manage", args=[ev.id]),
+
+            "owner_id": ev.owner_id,
         })
+
+
 
     return JsonResponse({
         "pins": pins,
@@ -164,6 +169,17 @@ def event_detail(request, event_id: int):
         "can_shop": can_shop,
         "is_owner": is_owner,
     })
+
+@login_required
+def event_manage(request, pk):
+    event = get_object_or_404(GarageSaleEvent, pk=pk)
+
+    # owner-only (and optionally role check)
+    if request.user != event.owner:
+        return HttpResponseForbidden("You do not have permission to manage this event.")
+
+    # This page should show: edit event + add/edit items (not public view)
+    return render(request, "garage_sale/event_manage.html", {"event": event})
 
 
 def item_detail(request, item_id: int):

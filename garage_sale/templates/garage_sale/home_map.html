@@ -36,6 +36,7 @@
   </div>
 
   <script>
+
   window.GARAGE_SALE = {
     mapDataUrl: "{% url 'garage_sale:map_data' %}",
     urls: {
@@ -56,5 +57,9 @@
 {% block scripts %}
   {{ block.super }}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+      // Make current user id available to home_map.js (null if not logged in)
+      window.CURRENT_USER_ID = {% if request.user.is_authenticated %}{{ request.user.id }}{% else %}null{% endif %};
+  </script>
   <script src="{% static 'garage_sale/js/home_map.js' %}?v=20260302_1"></script>
 {% endblock %}
