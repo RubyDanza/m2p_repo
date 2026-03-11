@@ -5,18 +5,32 @@
 
 {% block navbar_center %}
   <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-    <li class="nav-item">
-      <a class="btn btn-success" href="{% url 'garage_sale:home' %}">Garage Sale</a>
-    </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{% url 'garage_sale:home' %}">Home</a>
+  </li>
 
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'garage_sale:events_list' %}">View Events</a>
-    </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{% url 'garage_sale:events_list' %}">Events</a>
+  </li>
 
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'garage_sale:owner_event_create' %}">Create Event</a>
-    </li>
-  </ul>
+  {% if user.is_authenticated %}
+    {% if user.role == "CUSTOMER" %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'garage_sale:cart' %}">Cart</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'garage_sale:my_orders' %}">My Orders</a>
+      </li>
+    {% elif user.role == "LOCATION_OWNER" %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'garage_sale:owner_dashboard' %}">Owner Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'garage_sale:owner_event_create' %}">Create Event</a>
+      </li>
+    {% endif %}
+  {% endif %}
+</ul>
 {% endblock %}
 
 {% block content %}

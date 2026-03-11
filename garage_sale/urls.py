@@ -30,4 +30,7 @@ urlpatterns = [
     path("owner/event/<int:event_id>/items/new/", views.owner_item_create, name="owner_item_create"),
     path("owner/item/<int:item_id>/edit/", views.owner_item_edit, name="owner_item_edit"),
     path("owner/item/<int:item_id>/delete/", views.owner_item_delete, name="owner_item_delete"),
+
+    # Orders.. Summary of what has been ordered
+    path("my-orders/", views.my_orders, name="my_orders"),
 ]

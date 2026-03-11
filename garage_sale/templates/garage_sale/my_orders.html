@@ -1,0 +1,52 @@
+{% extends "garage_sale/base.html" %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+<h2>My Orders</h2>
+
+{% if reservations %}
+
+<table class="table table-striped mt-3">
+    <thead>
+        <tr>
+            <th>Reservation</th>
+            <th>Event</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th></th>
+        </tr>
+    </thead>
+
+<tbody>
+{% for r in reservations %}
+<tr>
+    <td>#{{ r.id }}</td>
+    <td>{{ r.event.title }}</td>
+    <td>{{ r.status }}</td>
+    <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+
+    <td>
+        <a href="{% url 'garage_sale:reservation_detail' r.id %}"
+           class="btn btn-sm btn-outline-primary">
+           View
+        </a>
+    </td>
+</tr>
+{% endfor %}
+</tbody>
+
+</table>
+
+{% else %}
+
+<div class="alert alert-info mt-3">
+    You have no orders yet.
+</div>
+
+{% endif %}
+
+</div>
+{% endblock %}

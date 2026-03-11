@@ -1,52 +1,55 @@
-{% extends "base.html" %}
+{% extends "garage_sale/base.html" %}
+
+{% block title %}Reservation{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
+    <h2>Reservation Confirmed</h2>
 
-  <h2 class="mb-3">Reservation Confirmed</h2>
-
-  <div class="card mb-4">
-    <div class="card-body">
-      <p><strong>Reservation ID:</strong> {{ reservation.id }}</p>
-      <p><strong>Status:</strong> {{ reservation.status }}</p>
-      <p><strong>Total:</strong> ${{ reservation.total_amount }}</p>
-      <p><strong>Created:</strong> {{ reservation.created_at }}</p>
+    <div class="card mt-3 mb-4">
+        <div class="card-body">
+            <p class="mb-1"><strong>Reservation ID:</strong> {{ reservation.id }}</p>
+            <p class="mb-1"><strong>Status:</strong> {{ reservation.status }}</p>
+            <p class="mb-1"><strong>Payment:</strong> {{ reservation.payment_status }}</p>
+            <p class="mb-0"><strong>Created:</strong> {{ reservation.created_at }}</p>
+        </div>
     </div>
-  </div>
 
-  <h4>Items</h4>
+    {% if line_items %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Event</th>
+                    <th>Price</th>
+                    <th>Qty</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in line_items %}
+                <tr>
+                    <td>{{ line.item.title }}</td>
+                    <td>{{ line.item.event.title }}</td>
+                    <td>${{ line.unit_price }}</td>
+                    <td>{{ line.qty }}</td>
+                    <td>${{ line.line_total }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-  <table class="table table-bordered">
-    <thead>
-      <tr>
-        <th>Event</th>
-        <th>Item</th>
-        <th>Qty</th>
-        <th>Unit Price</th>
-        <th>Line Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in items %}
-      <tr>
-        <td>{{ r.item.event.title }}</td>
-        <td>{{ r.item.name }}</td>
-        <td>${{ r.quantity|mul:r.unit_price }}</td>
-        <td>${{ r.unit_price }}</td>
-        <td>${{ r.unit_price|floatformat:2|add:""|floatformat:2 }}</td>
-        <td>${{ r.line_total }}</td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="5">No items found.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        <div class="text-end mt-3">
+            <h4>Total: ${{ total }}</h4>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No items found for this reservation.
+        </div>
+    {% endif %}
 
-  <a href="{% url 'garage_sale:home' %}" class="btn btn-primary">
-    Back to Garage Sales
-  </a>
-
+    <div class="mt-4">
+        <a href="{% url 'garage_sale:events_list' %}" class="btn btn-primary">Continue Browsing</a>
+    </div>
 </div>
 {% endblock %}

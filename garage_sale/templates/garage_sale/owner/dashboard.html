@@ -5,7 +5,7 @@
 
     <h2 class="mb-4">Garage Sale Owner Dashboard</h2>
 
-    <a href="{% url 'garage_sale:owner_event_create' %}" 
+    <a href="{% url 'garage_sale:owner_event_create' %}"
        class="btn btn-primary mb-3">
         Create New Event
     </a>
@@ -16,24 +16,24 @@
                 <div class="list-group-item mb-3">
                     <h5>{{ event.title }}</h5>
 
-                    <p>
+                    <p class="mb-2">
                         <strong>Dates:</strong>
                         {{ event.start_date }} → {{ event.end_date }}
                     </p>
 
-                    <div class="mt-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         <a href="{% url 'garage_sale:owner_event_edit' event.id %}"
-                           class="btn btn-outline-secondary">
+                           class="btn btn-sm btn-outline-primary">
                             Edit Event
                         </a>
 
                         <a href="{% url 'garage_sale:owner_items' event.id %}"
-                           class="btn btn-outline-info">
+                           class="btn btn-sm btn-outline-success">
                             Manage Items
                         </a>
 
                         <a href="{% url 'garage_sale:owner_event_reservations' event.id %}"
-                           class="btn btn-outline-success">
+                           class="btn btn-sm btn-outline-dark">
                             View Reservations
                         </a>
                     </div>

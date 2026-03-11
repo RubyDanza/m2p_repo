@@ -11,10 +11,8 @@ Cleaned + de-duplicated.
 """
 
 from __future__ import annotations
-
 from datetime import timedelta
 from decimal import Decimal
-
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -60,6 +58,10 @@ def _save_cart(request, cart: dict) -> None:
 def _cart_count(cart: dict) -> int:
     # cart values may be stored as ints or strings; normalize
     return sum(int(q) for q in cart.values()) if cart else 0
+
+def _clear_cart(request):
+    request.session["cart"] = {}
+    request.session.modified = True
 
 
 # -------------------------
@@ -177,6 +179,8 @@ def item_detail(request, item_id: int):
     cart = _get_cart(request)
     cart_count = sum(int(q) for q in cart.values()) if cart else 0
 
+
+
     user_role = getattr(request.user, "role", "")
     can_shop = request.user.is_authenticated and user_role == "CUSTOMER"
 
@@ -186,175 +190,6 @@ def item_detail(request, item_id: int):
         "can_shop": can_shop,
     })
 
-# -------------------------
-# Cart
-# -------------------------
-
-def cart_view(request):
-    cart = _get_cart(request)
-    item_ids = [int(k) for k in cart.keys()] if cart else []
-
-    items = (
-        SaleItem.objects
-        .filter(id__in=item_ids, is_listed=True, quantity_available__gt=0)
-        .select_related("event")
-    )
-
-    line_items = []
-    total = Decimal("0.00")
-
-    item_map = {i.id: i for i in items}
-    for k, qty in cart.items():
-        item_id = int(k)
-        qty = int(qty)
-        item = item_map.get(item_id)
-        if not item:
-            continue
-
-        price = item.price or Decimal("0.00")
-        line_total = price * qty
-        total += line_total
-        line_items.append({
-            "item": item,
-            "qty": qty,
-            "line_total": line_total,
-        })
-
-    return render(request, "garage_sale/cart_review.html", {
-        "line_items": line_items,
-        "total": total,
-        "cart_count": _cart_count(cart),
-    })
-
-
-def cart_add(request):
-    if request.method != "POST":
-        return HttpResponseBadRequest("POST only")
-
-    item_id = request.POST.get("item_id")
-    qty = request.POST.get("qty", "1")
-
-    try:
-        item_id = int(item_id)
-        qty = max(1, int(qty))
-    except (TypeError, ValueError):
-        return HttpResponseBadRequest("Bad item_id/qty")
-
-    # Only allow adding listed + in-stock items
-    item = get_object_or_404(
-        SaleItem,
-        pk=item_id,
-        is_listed=True,
-        quantity_available__gt=0,
-    )
-
-    cart = _get_cart(request)
-    cart[str(item.id)] = int(cart.get(str(item.id), 0)) + qty
-    _save_cart(request, cart)
-
-    return redirect("garage_sale:cart")
-
-
-def cart_remove(request):
-    if request.method != "POST":
-        return HttpResponseBadRequest("POST only")
-
-    item_id = request.POST.get("item_id")
-    try:
-        item_id = int(item_id)
-    except (TypeError, ValueError):
-        return HttpResponseBadRequest("Bad item_id")
-
-    cart = _get_cart(request)
-    cart.pop(str(item_id), None)
-    _save_cart(request, cart)
-
-    return redirect("garage_sale:cart")
-
-
-# -------------------------
-# Checkout -> Reservation
-# -------------------------
-
-@login_required
-def checkout(request):
-    """
-    Creates a Reservation for current user from cart contents.
-    NOTE: currently does not decrement stock; you can do that on "confirm" later.
-    """
-    cart = _get_cart(request)
-    if not cart:
-        return redirect("garage_sale:cart")
-
-    item_ids = [int(k) for k in cart.keys()]
-    items = list(
-        SaleItem.objects
-        .filter(id__in=item_ids, is_listed=True, quantity_available__gt=0)
-        .select_related("event")
-    )
-
-    item_map = {i.id: i for i in items}
-
-    with transaction.atomic():
-        reservation = Reservation.objects.create(
-            customer=request.user,
-            status=Reservation.Status.PENDING,  # adjust if your enum differs
-        )
-
-        total = Decimal("0.00")
-
-        for k, qty in cart.items():
-            item_id = int(k)
-            qty = int(qty)
-            item = item_map.get(item_id)
-            if not item:
-                continue
-
-            price = item.price or Decimal("0.00")
-            line_total = price * qty
-            total += line_total
-
-            ReservationItem.objects.create(
-                reservation=reservation,
-                item=item,
-                quantity=qty,
-                unit_price=price,
-            )
-
-        reservation.total_amount = total
-        reservation.save(update_fields=["total_amount"])
-
-    # Clear cart after successful reservation creation
-    _save_cart(request, {})
-
-    return redirect("garage_sale:reservation_detail", reservation_id=reservation.id)
-
-
-@login_required
-def reservation_detail(request, reservation_id: int):
-    reservation = get_object_or_404(
-        Reservation,
-        pk=reservation_id,
-        customer=request.user,
-    )
-
-    qs = (
-        ReservationItem.objects
-        .filter(reservation=reservation)
-        .select_related("item", "item__event")
-        .order_by("id")
-    )
-
-    items = []
-    for r in qs:
-        r.line_total = r.quantity * r.unit_price
-        items.append(r)
-
-    return render(request, "garage_sale/reservation_detail.html", {
-        "reservation": reservation,
-        "items": items,
-        "cart_count": _cart_count(_get_cart(request)),
-    })
 
 
 # -------------------------
@@ -445,17 +280,45 @@ def owner_event_edit(request, event_id: int):
 
 
 @login_required
-def owner_event_reservations(request, event_id: int):
-    event = get_object_or_404(GarageSaleEvent, pk=event_id, owner=request.user)
+def owner_event_reservations(request, event_id):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id)
+
+    if request.user != event.owner:
+        return HttpResponseForbidden("Not allowed")
+
     reservations = (
         Reservation.objects
-        .filter(items__item__event=event)
-        .distinct()
-        .order_by("-id")
+        .filter(event=event)
+        .select_related("customer", "assigned_consultant")
+        .prefetch_related("lines__item")
+        .order_by("-created_at")
     )
-    return render(request, "garage_sale/owner/reservations.html", {
+
+    reservation_rows = []
+    for reservation in reservations:
+        lines = []
+        total = Decimal("0.00")
+
+        for line in reservation.lines.all():
+            line_total = (line.price_at_time or Decimal("0.00")) * line.quantity
+            total += line_total
+
+            lines.append({
+                "item": line.item,
+                "quantity": line.quantity,
+                "price_at_time": line.price_at_time,
+                "line_total": line_total,
+            })
+
+        reservation_rows.append({
+            "reservation": reservation,
+            "lines": lines,
+            "total": total,
+        })
+
+    return render(request, "garage_sale/owner/event_reservations.html", {
         "event": event,
-        "reservations": reservations,
+        "reservation_rows": reservation_rows,
     })
 
 
@@ -516,4 +379,255 @@ def owner_item_delete(request, item_id: int):
     return render(request, "garage_sale/owner/item_confirm_delete.html", {
         "item": item,
         "event_id": event_id,
+    })
+
+# -------------------------
+# Cart
+# -------------------------
+
+def cart_view(request):
+    cart = _get_cart(request)
+    item_ids = [int(k) for k in cart.keys()] if cart else []
+
+    items = (
+        SaleItem.objects
+        .filter(id__in=item_ids, is_listed=True)
+        .select_related("event")
+    )
+
+    line_items = []
+    total = Decimal("0.00")
+
+    item_map = {i.id: i for i in items}
+
+    for k, qty in cart.items():
+        item_id = int(k)
+        qty = int(qty)
+        item = item_map.get(item_id)
+
+        if not item:
+            continue
+
+        price = item.price or Decimal("0.00")
+        line_total = price * qty
+
+        is_valid = item.quantity_available >= qty and item.quantity_available > 0
+
+        if is_valid:
+            total += line_total
+
+        line_items.append({
+            "item": item,
+            "qty": qty,
+            "line_total": line_total,
+            "available": item.quantity_available,
+            "is_valid": is_valid,
+        })
+
+    has_invalid_items = any(not line["is_valid"] for line in line_items)
+
+    return render(request, "garage_sale/cart_review.html", {
+        "line_items": line_items,
+        "total": total,
+        "cart_count": _cart_count(cart),
+        "has_invalid_items": has_invalid_items,
+    })
+
+
+def cart_add(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST only")
+
+    item_id = request.POST.get("item_id")
+    qty = request.POST.get("qty", "1")
+
+    try:
+        item_id = int(item_id)
+        qty = max(1, int(qty))
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest("Bad item_id/qty")
+
+    # Only allow adding listed + in-stock items
+    item = get_object_or_404(
+        SaleItem,
+        pk=item_id,
+        is_listed=True,
+        quantity_available__gt=0,
+    )
+
+    cart = _get_cart(request)
+    cart[str(item.id)] = int(cart.get(str(item.id), 0)) + qty
+    _save_cart(request, cart)
+
+    return redirect("garage_sale:cart")
+
+
+def cart_remove(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST only")
+
+    item_id = request.POST.get("item_id")
+    try:
+        item_id = int(item_id)
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest("Bad item_id")
+
+    cart = _get_cart(request)
+    cart.pop(str(item_id), None)
+    _save_cart(request, cart)
+
+    return redirect("garage_sale:cart")
+
+
+# -------------------------
+# Checkout -> Reservation
+# -------------------------
+
+@login_required
+def checkout(request):
+    cart = _get_cart(request)
+    print("CHECKOUT cart:", cart)
+
+    if not cart:
+        print("CHECKOUT FAIL: cart empty")
+        return redirect("garage_sale:cart")
+
+    item_ids = [int(k) for k in cart.keys()]
+    print("CHECKOUT item_ids:", item_ids)
+
+    items = list(SaleItem.objects.filter(id__in=item_ids).select_related("event"))
+    print("CHECKOUT items:", [(i.id, i.title, i.quantity_available) for i in items])
+
+    if not items:
+        print("CHECKOUT FAIL: no items found")
+        return redirect("garage_sale:cart")
+
+    event = items[0].event
+    print("CHECKOUT event:", event.id if event else None)
+
+    for item in items:
+        qty = int(cart.get(str(item.id), 0))
+        print(
+            "CHECKOUT line:",
+            "item_id=", item.id,
+            "title=", item.title,
+            "qty=", qty,
+            "available=", item.quantity_available,
+        )
+
+        if qty <= 0:
+            print("CHECKOUT SKIP: qty <= 0")
+            continue
+
+        if item.quantity_available < qty:
+            print("CHECKOUT FAIL: insufficient stock")
+            messages.error(
+                request,
+                f"Sorry, only {item.quantity_available} of '{item.title}' is available."
+            )
+            return redirect("garage_sale:cart")
+
+    reservation = Reservation.objects.create(
+        event=event,
+        customer=request.user,
+        status=Reservation.Status.CONFIRMED,
+    )
+
+    for item in items:
+        qty = int(cart.get(str(item.id), 0))
+        if qty <= 0:
+            continue
+
+        ReservationItem.objects.create(
+            reservation=reservation,
+            item=item,
+            quantity=qty,
+            price_at_time=item.price,
+        )
+
+        item.quantity_available -= qty
+        item.save(update_fields=["quantity_available"])
+
+    _clear_cart(request)
+
+    return redirect("garage_sale:reservation_detail", reservation_id=reservation.id)
+
+
+
+@login_required
+def reservation_detail(request, reservation_id):
+    reservation = get_object_or_404(
+        Reservation.objects.prefetch_related("lines__item", "lines__item__event"),
+        id=reservation_id,
+        customer=request.user,
+    )
+
+    line_items = []
+    total = Decimal("0.00")
+
+    for line in reservation.lines.all():
+        line_total = (line.price_at_time or Decimal("0.00")) * line.quantity
+        total += line_total
+
+        line_items.append({
+            "item": line.item,
+            "qty": line.quantity,
+            "unit_price": line.price_at_time,
+            "line_total": line_total,
+        })
+
+    return render(request, "garage_sale/reservation_detail.html", {
+        "reservation": reservation,
+        "line_items": line_items,
+        "total": total,
+    })
+
+
+@login_required
+def my_orders(request):
+    reservations = (
+        Reservation.objects
+        .filter(customer=request.user)
+        .order_by("-created_at")
+    )
+
+    return render(request, "garage_sale/my_orders.html", {
+        "reservations": reservations
+    })
+
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404, render
+
+@login_required
+def owner_event_reservations(request, event_id):
+    event = get_object_or_404(GarageSaleEvent, pk=event_id)
+
+    if request.user != event.owner:
+        return HttpResponseForbidden("Not allowed")
+
+    reservations = (
+        Reservation.objects
+        .filter(event=event)
+        .select_related("customer", "assigned_consultant")
+        .prefetch_related("lines__item")
+        .order_by("-created_at")
+    )
+
+    reservation_rows = []
+    for reservation in reservations:
+        total = sum(
+            (line.price_at_time or 0) * line.quantity
+            for line in reservation.lines.all()
+        )
+
+        reservation_rows.append({
+            "reservation": reservation,
+            "lines": reservation.lines.all(),
+            "total": total,
+        })
+
+    return render(request, "garage_sale/owner/event_reservations.html", {
+        "event": event,
+        "reservation_rows": reservation_rows,
     })
