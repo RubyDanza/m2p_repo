@@ -14,6 +14,9 @@ urlpatterns = [
     path("api/available-consultants/", views.api_available_consultants, name="api_available_consultants"),
     path("api/book/", views.request_booking, name="request_booking"),
 
+    path("customer/schedule/", views.customer_schedule, name="customer_schedule"),
+    path("appointment/<int:appointment_id>/cancel/", views.cancel_appointment, name="cancel_appointment"),
+
     path("consultant/dashboard/", views.consultant_dashboard, name="consultant_dashboard"),
     path("consultant/appointments/", views.consultant_appointments, name="consultant_appointments"),
     path("consultant/appointments/<int:pk>/accept/", views.consultant_accept, name="consultant_accept"),

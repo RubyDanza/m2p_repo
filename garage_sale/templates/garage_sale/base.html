@@ -4,9 +4,14 @@
 {% block title %}Garage Sale{% endblock %}
 
 {% block navbar_center %}
-  <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-  <li class="nav-item">
-    <a class="nav-link" href="{% url 'garage_sale:home' %}">Home</a>
+<ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-lg-center">
+
+  <li class="nav-item me-2">
+    <a class="btn btn-primary" href="{% url 'core:home' %}">All Businesses</a>
+  </li>
+
+  <li class="nav-item me-3">
+    <a class="btn btn-success" href="{% url 'garage_sale:home' %}">Garage Sale</a>
   </li>
 
   <li class="nav-item">
@@ -30,7 +35,19 @@
       </li>
     {% endif %}
   {% endif %}
+
 </ul>
+{% endblock %}
+
+{% block navbar_right %}
+<form method="get" action="" class="d-flex align-items-center me-2 mb-0">
+    <select name="range" id="gsRange" class="form-select form-select-sm" style="width: 160px;">
+      <option value="today" {% if request.GET.range == "today" or not request.GET.range %}selected{% endif %}>Today</option>
+      <option value="tomorrow" {% if request.GET.range == "tomorrow" %}selected{% endif %}>Tomorrow</option>
+      <option value="week" {% if request.GET.range == "week" %}selected{% endif %}>This Week</option>
+      <option value="month" {% if request.GET.range == "month" %}selected{% endif %}>This Month</option>
+    </select>
+</form>
 {% endblock %}
 
 {% block content %}

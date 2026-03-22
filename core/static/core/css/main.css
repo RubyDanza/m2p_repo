@@ -1,0 +1,7 @@
+.btn-success,
+.btn-success:visited,
+.btn-success:hover,
+.btn-success:active,
+.btn-success:focus {
+    color: #fff !important;
+}

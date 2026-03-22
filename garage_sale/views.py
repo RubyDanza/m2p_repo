@@ -102,6 +102,7 @@ def map_data(request):
     qs = (
         GarageSaleEvent.objects
         .select_related("owner", "location")
+        .filter(end_date__gte=today)
         .filter(start_date__lte=end, end_date__gte=start)
         .order_by("start_date", "id")
     )
@@ -124,12 +125,11 @@ def map_data(request):
 
     return JsonResponse({
         "pins": pins,
-        "events": pins,  # backward compat
+        "events": pins,
         "range": range_key,
         "start": start.isoformat(),
         "end": end.isoformat(),
     })
-
 
 def events_list(request):
     """

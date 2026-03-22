@@ -1,0 +1,73 @@
+{% extends "physio/base.html" %}
+
+{% block title %}My Schedule{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-4">My Schedule</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} mb-3">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if appointments %}
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered align-middle">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Consultant</th>
+                        <th>Location</th>
+                        <th>Room</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appt in appointments %}
+                    <tr>
+                        <td>{{ appt.date }}</td>
+                        <td>{{ appt.time }}</td>
+                        <td>{{ appt.consultant|default:"-" }}</td>
+                        <td>{{ appt.location|default:appt.location_label|default:"-" }}</td>
+                        <td>{{ appt.room_number|default:"-" }}</td>
+                        <td>
+                            {% if appt.status == "BOOKED" %}
+                                <span class="badge bg-primary">Booked</span>
+                            {% elif appt.status == "COMPLETED" %}
+                                <span class="badge bg-success">Completed</span>
+                            {% elif appt.status == "CANCELLED" %}
+                                <span class="badge bg-danger">Cancelled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ appt.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if appt.status == "BOOKED" %}
+                                <form method="post" action="{% url 'physio:cancel_appointment' appt.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        Cancel
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            You do not have any appointments yet.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

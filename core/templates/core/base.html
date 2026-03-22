@@ -7,61 +7,58 @@
   <title>{% block title %}INTERNUNCIO{% endblock %}</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'core/css/main.css' %}">
   {% block head_extra %}{% endblock %}
 </head>
 
 <body class="bg-light min-vh-100 d-flex flex-column">
 
 <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
-      <div class="container-fluid">
+  <div class="container-fluid">
 
 
-          {% block navbar_center %}{% endblock %}
 
-          <div class="ms-auto d-flex gap-3 align-items-center">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-            {% with nxt=next_url|default:request.get_full_path %}
-              {% if user.is_authenticated %}
+    <div class="collapse navbar-collapse" id="mainNavbar">
 
-              <span class="text-dark fw-semibold">
-                Hi {{ user.username }}
-              </span>
+      {% block navbar_center %}{% endblock %}
 
-            {% if user.role == "LOCATION_OWNER" %}
-              <a class="btn btn-outline-success"
-                href="{% url 'core:location_add' %}">
-                + Add Location
-              </a>
-            {% endif %}
+      <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+        {% block navbar_right %}{% endblock %}
+
+        {% with nxt=next_url|default:request.get_full_path %}
+          {% if user.is_authenticated %}
+            <span class="text-dark fw-semibold me-1">
+              Hi {{ user.username }}
+            </span>
 
             <a class="btn btn-primary"
-              href="{% url 'core:logout' %}?next={{ nxt|urlencode }}">
+               href="{% url 'core:logout' %}?next={{ nxt|urlencode }}">
               Logout
             </a>
-
           {% else %}
-
             <a class="btn btn-outline-dark"
-              href="{% url 'core:login' %}?next={{ nxt|urlencode }}">
+               href="{% url 'core:login' %}?next={{ nxt|urlencode }}">
               Login
             </a>
 
             <a class="btn btn-success"
-              href="{% url 'core:register' %}?next={{ nxt|urlencode }}">
+               href="{% url 'core:register' %}?next={{ nxt|urlencode }}">
               Register
             </a>
-
           {% endif %}
         {% endwith %}
-
       </div>
+
+    </div>
   </div>
 </nav>
 
-{# Optional secondary toolbar row for apps (physio / garage_sale) #}
 {% block subnav %}{% endblock %}
 
-{# Wrapper blocks let map pages go full-bleed (no container/padding) #}
 {% block page_wrap_open %}
   <main class="flex-grow-1 container py-4" id="page-main">
 {% endblock %}

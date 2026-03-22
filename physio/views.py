@@ -538,6 +538,43 @@ def consultant_dashboard(request):
 
 
 @login_required
+def customer_schedule(request):
+    appointments = (
+        Appointment.objects
+        .filter(created_by=request.user)
+        .select_related("consultant", "location")
+        .order_by("-date", "-time")
+    )
+    return render(
+        request,
+        "physio/customer_schedule.html",
+        {"appointments": appointments},
+    )
+
+
+@login_required
+def cancel_appointment(request, appointment_id):
+    appointment = get_object_or_404(
+        Appointment,
+        id=appointment_id,
+        created_by=request.user,
+    )
+
+    if request.method != "POST":
+        messages.error(request, "Invalid request.")
+        return redirect("physio:customer_schedule")
+
+    if appointment.status in ["CANCELLED", "COMPLETED"]:
+        messages.info(request, "This appointment cannot be cancelled.")
+        return redirect("physio:customer_schedule")
+
+    appointment.status = "CANCELLED"
+    appointment.save(update_fields=["status"])
+
+    messages.success(request, "Your appointment has been cancelled.")
+    return redirect("physio:customer_schedule")
+
+@login_required
 def location_owner_dashboard(request):
     return redirect("physio/location_owner_overview")
 

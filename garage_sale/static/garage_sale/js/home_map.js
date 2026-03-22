@@ -62,10 +62,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function buildMapDataUrl() {
-    const u = new URL(baseMapDataUrl, window.location.origin);
-    u.searchParams.set("range", getRange());
-    return u.toString();
-  }
+  let mapDataUrl = urls.mapData || "/garage-sale/map-data/";
+
+  const rangeSelect = document.getElementById("gsRange");
+  const range = rangeSelect ? rangeSelect.value : "today";
+
+  const url = new URL(mapDataUrl, window.location.origin);
+  url.searchParams.set("range", range);
+
+  return url.toString();
+}
 
   async function fetchJSON(url) {
     const r = await fetch(url, { credentials: "same-origin" });
@@ -80,61 +86,70 @@ document.addEventListener("DOMContentLoaded", () => {
     return JSON.parse(text);
   }
 
-  async function loadPins() {
-    pinsLayer.clearLayers();
+  let emptyPopup = null;
 
-    const dataUrl = buildMapDataUrl();
-    const data = await fetchJSON(dataUrl);
+async function loadPins() {
+  pinsLayer.clearLayers();
 
-    const pins = (data && data.pins) || [];
-
-    if (!pins.length) {
-      L.popup()
-        .setLatLng(map.getCenter())
-        .setContent(`<b>No garage sales found for this range.</b>`)
-        .openOn(map);
-      return;
-    }
-
-    const bounds = [];
-
-    pins.forEach((p) => {
-      const lat = p && p.lat;
-      const lng = p && p.lng;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-      bounds.push([lat, lng]);
-
-      const title = esc(p.title || "Garage Sale");
-
-      const dateLine = p.start_date
-        ? `<div class="text-muted small">
-             From: ${esc(p.start_date)}${p.end_date ? ` → ${esc(p.end_date)}` : ""}
-           </div>`
-        : "";
-
-      // Always safe (fallback keeps local dev working)
-      let eventDetailBase = urls.eventDetailBase || "/garage-sale/event/";
-      if (!eventDetailBase.endsWith("/")) eventDetailBase += "/";
-      const detailUrl = `${eventDetailBase}${p.id}/`;
-
-      const action = `<a class="btn btn-success" href="${detailUrl}">View details</a>`;
-
-      const marker = L.marker([lat, lng]).addTo(pinsLayer);
-      marker.bindPopup(`
-        <div style="min-width:240px">
-          <strong>${title}</strong>
-          ${dateLine}
-          <div style="margin-top:10px">${action}</div>
-        </div>
-      `);
-    });
-
-    // Fit once AFTER markers are created
-    if (bounds.length) {
-      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
-    }
+  if (emptyPopup) {
+    map.closePopup(emptyPopup);
+    emptyPopup = null;
   }
+  map.closePopup();
+
+  const dataUrl = buildMapDataUrl();
+  console.log("Loading map data from:", dataUrl);
+
+  const data = await fetchJSON(dataUrl);
+  console.log("Map data response:", data);
+
+  const pins = (data && (data.pins || data.events)) || [];
+
+  if (!pins.length) {
+    emptyPopup = L.popup()
+      .setLatLng(map.getCenter())
+      .setContent(`<b>No garage sales found for this range.</b>`)
+      .openOn(map);
+    return;
+  }
+
+  const bounds = [];
+
+  pins.forEach((p) => {
+    const lat = Number(p && p.lat);
+    const lng = Number(p && p.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    bounds.push([lat, lng]);
+
+    const title = esc(p.title || "Garage Sale");
+
+    const dateLine = p.start_date
+      ? `<div class="text-muted small">
+           From: ${esc(p.start_date)}${p.end_date ? ` → ${esc(p.end_date)}` : ""}
+         </div>`
+      : "";
+
+    let eventDetailBase = urls.eventDetailBase || "/garage-sale/event/";
+    if (!eventDetailBase.endsWith("/")) eventDetailBase += "/";
+    const detailUrl = `${eventDetailBase}${p.id}/`;
+
+    const action = `<a class="btn btn-success text-white" href="${detailUrl}">View details</a>`;
+
+    const marker = L.marker([lat, lng]).addTo(pinsLayer);
+    marker.bindPopup(`
+      <div style="min-width:240px">
+        <strong>${title}</strong>
+        ${dateLine}
+        <div style="margin-top:10px">${action}</div>
+      </div>
+    `);
+  });
+
+  if (bounds.length) {
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
+  }
+}
 
   // Wire up range dropdown if it exists
   const rangeSelect = document.getElementById("gsRange");
